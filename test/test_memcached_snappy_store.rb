@@ -3,7 +3,7 @@ require 'test_helper'
 class TestMemcachedSnappyStore < ActiveSupport::TestCase
 
   setup do
-     @cache = ActiveSupport::Cache.lookup_store(:memcached_snappy_store)
+     @cache = ActiveSupport::Cache.lookup_store(:memcached_snappy_store, Memcached::Rails.new(["localhost:21211"]))
      @cache.clear
   end
 
