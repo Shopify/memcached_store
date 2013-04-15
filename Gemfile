@@ -1,4 +1,4 @@
 source 'https://rubygems.org'
 
-# Specify your gem's dependencies in memcached_snappy_store.gemspec
+# Specify your gem's dependencies in rails_cache_adapters.gemspec
 gemspec

@@ -20,6 +20,6 @@ Gem::Specification.new do |gem|
   gem.add_development_dependency "minitest"
   gem.add_development_dependency "mocha"
   gem.add_development_dependency "timecop"
-  gem.add_development_dependency "memcache"
+  gem.add_development_dependency "memcached"
   gem.add_development_dependency "memcache-client"
 end

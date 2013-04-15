@@ -29,9 +29,6 @@ module ActiveSupport
 
         response = @data.set(escape_key(key), serialized_compressed_value, expires_in, true)
         response == Response::STORED
-      rescue MemCache::MemCacheError => e
-        logger.error("MemCacheError (#{e}): #{e.message}") if logger
-        false
       end
 
 
