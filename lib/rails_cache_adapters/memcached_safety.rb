@@ -38,8 +38,9 @@ module RailsCacheAdapters
     alias_method_chain :get_multi, :rescue
 
     def set_with_limit_and_rescue(key, value, ttl=@default_ttl, raw=false)
+      value = raw ? value : Marshal.dump(value)
       return false if value.size > SIZE_LIMIT
-      set_without_limit_and_rescue(key, value, ttl, !raw)
+      set_without_limit_and_rescue(key, value, ttl, false)
     rescue *NONFATAL_EXCEPTIONS
       false
     end
