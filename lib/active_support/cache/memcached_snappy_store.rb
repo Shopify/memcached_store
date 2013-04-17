@@ -28,7 +28,6 @@ module ActiveSupport
         serialized_compressed_value = Snappy.deflate(serialized_value)
 
         response = @data.set(escape_key(key), serialized_compressed_value, expires_in, true)
-        response == Response::STORED
       end
 
 
