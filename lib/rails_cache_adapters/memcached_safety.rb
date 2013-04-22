@@ -14,6 +14,10 @@ module RailsCacheAdapters
 
     NONFATAL_EXCEPTIONS = Memcached::EXCEPTIONS - FATAL_EXCEPTIONS
 
+    if ::Rails.env.test?
+      NONFATAL_EXCEPTIONS = []
+    end
+
     SIZE_LIMIT = 2 * 1024 * 1024
 
     def exist_with_rescue?(*args)
