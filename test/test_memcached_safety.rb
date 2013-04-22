@@ -42,27 +42,16 @@ class TestMemcachedSafety < ActiveSupport::TestCase
     end
   end
 
-  test "set skips setting if value is larger than 2 MB" do
-    big_value = ("A" * 2 * 1024 * 1024) + "B"
-    RailsCacheAdapters::MemcachedSafety.any_instance.expects(:set_without_limit_and_rescue).never
-    @cache.set("asdf", ActiveSupport::Cache::Entry.new({:key => big_value}))
-  end
-
   test "set absorbs non-fatal exceptions" do
-    expect_nonfatal(:set_without_limit_and_rescue)
+    expect_nonfatal(:set_without_rescue)
     @cache.set("a-key", @entry)
   end
 
   test "set raises fatal exceptions" do
-    expect_fatal(:set_without_limit_and_rescue)
+    expect_fatal(:set_without_rescue)
     assert_raises(Memcached::AKeyLengthOfZeroWasProvided) do
       @cache.set("a-key", @entry)
     end
-  end
-
-  test "set marshals early to check value size" do
-    RailsCacheAdapters::MemcachedSafety.any_instance.expects(:set_without_limit_and_rescue).with("asdf", instance_of(String), 10, false).once
-    @cache.set("asdf", @entry, 10)
   end
 
   test "add absorbs non-fatal exceptions" do
