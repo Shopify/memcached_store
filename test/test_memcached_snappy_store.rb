@@ -37,7 +37,7 @@ class TestMemcachedSnappyStore < ActiveSupport::TestCase
 
       serialized_entry = Marshal.dump(entry)
       serialized_compressed_entry = Snappy.deflate(serialized_entry)
-      actual_cache_value = @cache.instance_eval{ @data.get(key, true ) }
+      actual_cache_value = @cache.instance_variable_get(:@data).get(key, false)
 
       assert_equal serialized_compressed_entry, actual_cache_value
     end
@@ -83,5 +83,13 @@ class TestMemcachedSnappyStore < ActiveSupport::TestCase
 
     Snappy.expects(:inflate).times(3).returns(*entries)
     assert_equal values, @cache.read_multi(*keys).values
+  end
+
+  test "should support raw writes that don't use marshal format" do
+    key = 'key'
+    @cache.write(key, 'value', :raw => true)
+
+    actual_cache_value = @cache.instance_variable_get(:@data).get(key, false)
+    assert_equal 'value', Snappy.inflate(actual_cache_value)
   end
 end
