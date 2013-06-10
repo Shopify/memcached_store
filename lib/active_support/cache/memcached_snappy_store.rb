@@ -26,11 +26,7 @@ module ActiveSupport
 
         serialized_compressed_value = Snappy.deflate(serialized_value)
 
-        response = @data.set(escape_key(key), serialized_compressed_value, expires_in, false)
-      end
-
-      def read_entry(key, options)
-        deserialize_entry(@data.get(escape_key(key), false))
+        response = @data.set(escape_key(key), serialized_compressed_value, expires_in, true)
       end
 
       def deserialize_entry(compressed_value)
