@@ -32,8 +32,6 @@ module ActiveSupport
       def deserialize_entry(compressed_value)
         decompressed_value = compressed_value.nil? ? compressed_value : Snappy.inflate(compressed_value)
         super(decompressed_value)
-      rescue Snappy::Error
-        nil
       end
     end
   end
