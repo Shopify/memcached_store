@@ -12,10 +12,10 @@ module RailsCacheAdapters
       Memcached::TheHostTransportProtocolDoesNotMatchThatOfTheClient
     ]
 
-    NONFATAL_EXCEPTIONS = Memcached::EXCEPTIONS - FATAL_EXCEPTIONS
-
-    if Kernel.const_defined?(:Rails) && ::Rails.env.test?
+    if defined?(::Rails) && ::Rails.env.test?
       NONFATAL_EXCEPTIONS = []
+    else
+      NONFATAL_EXCEPTIONS = Memcached::EXCEPTIONS - FATAL_EXCEPTIONS
     end
 
     SIZE_LIMIT = 2 * 1024 * 1024
