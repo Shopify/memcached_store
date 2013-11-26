@@ -13,7 +13,7 @@ module RailsCacheAdapters
     ]
 
     if defined?(::Rails) && ::Rails.env.test?
-      NONFATAL_EXCEPTIONS = []
+      NONFATAL_EXCEPTIONS = [Memcached::NotFound]
     else
       NONFATAL_EXCEPTIONS = Memcached::EXCEPTIONS - FATAL_EXCEPTIONS
     end
