@@ -43,8 +43,9 @@ module RailsCacheAdapters
 
     def set_with_rescue(*args)
       set_without_rescue(*args)
+      @string_return_types? "STORED\r\n" : true
     rescue *NONFATAL_EXCEPTIONS
-      false
+      @string_return_types? "NOT STORED\r\n" : false
     end
     alias_method_chain :set, :rescue
 
