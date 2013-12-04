@@ -2,7 +2,7 @@ PATH
   remote: .
   specs:
     rails_cache_adapters (0.0.1)
-      activesupport (~> 3.2.12)
+      activesupport
       snappy (= 0.0.4)
 
 GEM
@@ -18,7 +18,7 @@ GEM
     minitest (4.7.1)
     mocha (0.13.3)
       metaclass (~> 0.0.1)
-    multi_json (1.7.2)
+    multi_json (1.8.2)
     rake (10.0.4)
     snappy (0.0.4)
     timecop (0.6.1)
