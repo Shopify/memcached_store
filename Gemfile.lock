@@ -2,7 +2,7 @@ PATH
   remote: .
   specs:
     rails_cache_adapters (0.0.1)
-      activesupport
+      activesupport (>= 3.2)
       snappy (= 0.0.4)
 
 GEM
