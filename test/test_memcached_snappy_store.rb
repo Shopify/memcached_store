@@ -3,7 +3,7 @@ require 'test_helper'
 class TestMemcachedSnappyStore < ActiveSupport::TestCase
 
   setup do
-     @cache = ActiveSupport::Cache.lookup_store(:memcached_snappy_store, Memcached::Rails.new(["localhost:21211"]))
+     @cache = ActiveSupport::Cache.lookup_store(:memcached_snappy_store, Memcached::Rails.new(["localhost:11211"]))
      @cache.clear
   end
 
@@ -25,7 +25,7 @@ class TestMemcachedSnappyStore < ActiveSupport::TestCase
     end
   end
 
-  test "should use snappy to write cache entries" do 
+  test "should use snappy to write cache entries" do
     # Freezing time so created_at is the same in entry and the entry created
     # internally and assert_equal between the raw data in the cache and the
     # compressed explicitly makes sense
