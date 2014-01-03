@@ -13,7 +13,7 @@ Gem::Specification.new do |gem|
   gem.name          = "rails_cache_adapters"
   gem.require_paths = ["lib"]
   gem.version       = '0.0.1'
-  gem.add_runtime_dependency "activesupport", ">=  3.2"
+  gem.add_runtime_dependency "activesupport", ">= 3.2"
   gem.add_runtime_dependency "snappy", "0.0.4"
   gem.add_development_dependency "i18n"
   gem.add_development_dependency "rake"
