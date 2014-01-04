@@ -27,6 +27,10 @@ In your environment file:
 
 ```
 
+## Code status
+
+[![Build Status](https://travis-ci.org/Shopify/rails_cache_adapters.png)](https://travis-ci.org/Shopify/rails_cache_adapters)
+
 ## Contributing
 
 1. Fork it
