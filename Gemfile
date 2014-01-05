@@ -4,3 +4,4 @@ source 'https://rubygems.org'
 gemspec
 
 gem "activesupport", "~> 3.2.16"
+gem "minitest", "~> 4.7.5"
