@@ -14,11 +14,11 @@ module ActiveSupport
         Memcached::TheHostTransportProtocolDoesNotMatchThatOfTheClient
       ]
 
-#      if defined?(::Rails) && ::Rails.env.test?
-#        NONFATAL_EXCEPTIONS = []
-#      else
-      NONFATAL_EXCEPTIONS = Memcached::EXCEPTIONS - FATAL_EXCEPTIONS
-#      end
+      if defined?(::Rails) && ::Rails.env.test?
+        NONFATAL_EXCEPTIONS = []
+      else
+        NONFATAL_EXCEPTIONS = Memcached::EXCEPTIONS - FATAL_EXCEPTIONS
+      end
 
       ESCAPE_KEY_CHARS = /[\x00-\x20%\x7F-\xFF]/n
 
