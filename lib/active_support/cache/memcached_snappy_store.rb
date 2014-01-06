@@ -1,6 +1,8 @@
+require 'active_support/cache/memcached_store'
+
 module ActiveSupport
   module Cache
-    class MemcachedSnappyStore < Cache::MemCacheStore
+    class MemcachedSnappyStore < MemcachedStore
       class UnsupportedOperation < StandardError; end
 
       def increment(*args)
