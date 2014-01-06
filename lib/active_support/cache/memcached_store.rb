@@ -92,6 +92,10 @@ module ActiveSupport
         @data.stats
       end
 
+      def exist?(*args)
+        !!super
+      end
+
       protected
         # Read an entry from the cache.
         def read_entry(key, options) # :nodoc:
