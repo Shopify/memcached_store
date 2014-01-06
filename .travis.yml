@@ -6,7 +6,7 @@ rvm:
   - 2.1.0
 matrix:
   allow_failures:
-    - rvm: 2.1.0
+    - env: "AS_VERSION=master"
 env:
   - "AS_VERSION=3.2.16"
   - "AS_VERSION=4.0.2"
