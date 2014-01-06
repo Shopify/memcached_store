@@ -1,7 +1,15 @@
+# file havily based out off https://github.com/rails/rails/blob/3-2-stable/activesupport/lib/active_support/cache/mem_cache_store.rb
 require 'digest/md5'
 
 module ActiveSupport
   module Cache
+    # A cache store implementation which stores data in Memcached:
+    # http://memcached.org/
+    #
+    # MemcachedStore uses memcached gem as backend to connect to Memcached server.
+    #
+    # MemcachedStore implements the Strategy::LocalCache strategy which implements
+    # an in-memory cache inside of a block.
     class MemcachedStore < Store
       FATAL_EXCEPTIONS = [ Memcached::ABadKeyWasProvidedOrCharactersOutOfRange,
         Memcached::AKeyLengthOfZeroWasProvided,
@@ -45,8 +53,6 @@ module ActiveSupport
         extend Strategy::LocalCache
       end
 
-      # Reads multiple values from the cache using a single call to the
-      # servers for all keys. Options can be passed in the last argument.
       def read_multi(*names)
         options = names.extract_options!
         options = merged_options(options)
@@ -80,13 +86,10 @@ module ActiveSupport
         nil
       end
 
-      # Clear the entire cache on all memcached servers. This method should
-      # be used with care when shared cache is being used.
       def clear(options = nil)
         @data.flush_all
       end
 
-      # Get the statistics from the memcached servers.
       def stats
         @data.stats
       end
@@ -96,7 +99,6 @@ module ActiveSupport
       end
 
       protected
-        # Read an entry from the cache.
         def read_entry(key, options) # :nodoc:
           deserialize_entry(@data.get(escape_key(key), true))
         rescue *NONFATAL_EXCEPTIONS => e
@@ -104,7 +106,6 @@ module ActiveSupport
           nil
         end
 
-        # Write an entry to the cache.
         def write_entry(key, entry, options) # :nodoc:
           method = options && options[:unless_exist] ? :add : :set
           value = options[:raw] ? entry.value.to_s : entry
@@ -119,7 +120,6 @@ module ActiveSupport
           false
         end
 
-        # Delete an entry from the cache.
         def delete_entry(key, options) # :nodoc:
           @data.delete(escape_key(key))
           true
@@ -130,9 +130,6 @@ module ActiveSupport
 
       private
 
-        # Memcache keys are binaries. So we need to force their encoding to binary
-        # before applying the regular expression to ensure we are escaping all
-        # characters properly.
         def escape_key(key)
           key = key.to_s.dup
           key = key.force_encoding(Encoding::ASCII_8BIT)
