@@ -15,10 +15,10 @@ Gem::Specification.new do |gem|
   gem.version       = '0.0.1'
   gem.add_runtime_dependency "activesupport", ">= 3.2"
   gem.add_runtime_dependency "snappy", "0.0.4"
+  gem.add_runtime_dependency "memcached"
+
   gem.add_development_dependency "rake"
   gem.add_development_dependency "minitest"
   gem.add_development_dependency "mocha"
   gem.add_development_dependency "timecop"
-  gem.add_development_dependency "memcached"
-  gem.add_development_dependency "memcache-client"
 end

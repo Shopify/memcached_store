@@ -1,3 +1,4 @@
-require "active_support/cache"
-require "rails_cache_adapters/memcached_safety"
+require "active_support/all"
+require "memcached"
 
+require "rails_cache_adapters/memcached_safety"
