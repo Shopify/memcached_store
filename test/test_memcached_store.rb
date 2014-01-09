@@ -277,4 +277,11 @@ class TestMemcachedStore < ActiveSupport::TestCase
     assert_equal Encoding::UTF_8, key.encoding
   end
 
+  def test_initialize_accepts_a_list_of_servers_in_options
+    options = {servers: ["localhost:21211"]}
+    @cache = ActiveSupport::Cache.lookup_store(:memcached_store, options)
+
+    assert_equal 21211, @cache.instance_variable_get(:@data).servers.first.port
+  end
+
 end
