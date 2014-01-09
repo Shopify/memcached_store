@@ -2,7 +2,7 @@ require 'test_helper'
 
 class TestMemcachedSafety < ActiveSupport::TestCase
   setup do
-    @cache = RailsCacheAdapters::MemcachedSafety.new(["localhost:21211"])
+    @cache = MemcachedStore::MemcachedSafety.new(["localhost:21211"])
     @entry = ActiveSupport::Cache::Entry.new({:omg => "ponies"})
   end
 
@@ -128,10 +128,10 @@ class TestMemcachedSafety < ActiveSupport::TestCase
   private
 
   def expect_nonfatal(sym)
-    RailsCacheAdapters::MemcachedSafety.any_instance.expects(sym).raises(Memcached::ServerIsMarkedDead)
+    MemcachedStore::MemcachedSafety.any_instance.expects(sym).raises(Memcached::ServerIsMarkedDead)
   end
 
   def expect_fatal(sym)
-    RailsCacheAdapters::MemcachedSafety.any_instance.expects(sym).raises(Memcached::AKeyLengthOfZeroWasProvided)
+    MemcachedStore::MemcachedSafety.any_instance.expects(sym).raises(Memcached::AKeyLengthOfZeroWasProvided)
   end
 end

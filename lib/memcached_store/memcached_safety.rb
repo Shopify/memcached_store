@@ -1,4 +1,4 @@
-module RailsCacheAdapters
+module MemcachedStore
   class MemcachedSafety < Memcached::Rails
 
     FATAL_EXCEPTIONS = [ Memcached::ABadKeyWasProvidedOrCharactersOutOfRange,
