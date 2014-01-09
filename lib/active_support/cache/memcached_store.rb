@@ -31,10 +31,7 @@ module ActiveSupport
       ESCAPE_KEY_CHARS = /[\x00-\x20%\x7F-\xFF]/n
 
       def self.build_memcached(*addresses)
-        addresses = addresses.flatten
-        options = addresses.extract_options!
-        addresses = ["localhost:11211"] if addresses.empty?
-        Memcached::Rails.new(addresses, options)
+        Memcached::Rails.new(*addresses)
       end
 
       def initialize(*addresses)
