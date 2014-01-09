@@ -1,4 +1,7 @@
-# -*- encoding: utf-8 -*-
+# encoding: utf-8
+lib = File.expand_path('../lib/', __FILE__)
+$:.unshift lib unless $:.include?(lib)
+require "memcached_store/version"
 
 Gem::Specification.new do |gem|
   gem.authors       = ["Camilo Lopez", "Tom Burns", "Arthur Neves"]
@@ -11,7 +14,7 @@ Gem::Specification.new do |gem|
   gem.test_files    = gem.files.grep(%r{^(test|spec|features)/})
   gem.name          = "memcached_store"
   gem.require_paths = ["lib"]
-  gem.version       = '0.10.0'
+  gem.version       = MemcachedStore::VERSION
   gem.add_runtime_dependency "activesupport", ">=  3.2"
   gem.add_runtime_dependency "snappy", "0.0.4"
   gem.add_development_dependency "i18n"
