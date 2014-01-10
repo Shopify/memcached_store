@@ -1,4 +1,5 @@
 require 'active_support/cache/memcached_store'
+require 'snappy'
 
 module ActiveSupport
   module Cache
