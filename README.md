@@ -29,7 +29,7 @@ In your environment file:
 
 ## Code status
 
-[![Build Status](https://travis-ci.org/Shopify/rails_cache_adapters.png)](https://travis-ci.org/Shopify/rails_cache_adapters)
+[![Build Status](https://travis-ci.org/Shopify/memcached_store.png?branch=accept-list-of-servers-in-options)](https://travis-ci.org/Shopify/memcached_store)
 
 ## Contributing
 
