@@ -59,6 +59,9 @@ module ActiveSupport
           end
         end
         values
+      rescue *NONFATAL_EXCEPTIONS => e
+        @data.log_exception(e)
+        {}
       end
 
       def increment(name, amount = 1, options = nil) # :nodoc:
