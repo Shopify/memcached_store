@@ -279,9 +279,13 @@ class TestMemcachedStore < ActiveSupport::TestCase
 
   def test_initialize_accepts_a_list_of_servers_in_options
     options = {servers: ["localhost:21211"]}
-    @cache = ActiveSupport::Cache.lookup_store(:memcached_store, options)
-
-    assert_equal 21211, @cache.instance_variable_get(:@data).servers.first.port
+    cache = ActiveSupport::Cache.lookup_store(:memcached_store, options)
+    assert_equal 21211, cache.instance_variable_get(:@data).servers.first.port
   end
 
+  def test_multiple_servers
+    options = {servers: ["localhost:21211", "localhost:11211"]}
+    cache = ActiveSupport::Cache.lookup_store(:memcached_store, options)
+    assert_equal [21211, 11211], cache.instance_variable_get(:@data).servers.map(&:port)
+  end
 end
