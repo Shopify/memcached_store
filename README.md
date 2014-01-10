@@ -6,7 +6,7 @@ ActiveSupport cache store that adds snappy compression at the cost of making the
 
 Add this line to your application's Gemfile:
 
-    gem 'memcached_snappy_store'
+    gem 'memcached_store'
 
 And then execute:
 
@@ -14,7 +14,7 @@ And then execute:
 
 Or install it yourself as:
 
-    $ gem install memcached_snappy_store
+    $ gem install memcached_store
 
 ## Usage
 
