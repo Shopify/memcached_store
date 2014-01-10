@@ -30,10 +30,6 @@ module ActiveSupport
 
       ESCAPE_KEY_CHARS = /[\x00-\x20%\x7F-\xFF]/n
 
-      def self.build_memcached(*addresses)
-        Memcached::Rails.new(*addresses)
-      end
-
       def initialize(*addresses)
         addresses = addresses.flatten
         options = addresses.extract_options!
@@ -44,7 +40,7 @@ module ActiveSupport
         else
           mem_cache_options = options.dup
           UNIVERSAL_OPTIONS.each{|name| mem_cache_options.delete(name)}
-          @data = self.class.build_memcached(*(addresses + [mem_cache_options]))
+          @data = Memcached::Rails.new(*(addresses + [mem_cache_options]))
         end
 
         extend Strategy::LocalCache
