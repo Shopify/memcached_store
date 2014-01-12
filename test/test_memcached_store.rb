@@ -6,6 +6,16 @@ class TestMemcachedStore < ActiveSupport::TestCase
     @cache.clear
   end
 
+  def test_write_not_found
+    expect_not_found
+    assert_equal false, @cache.write('not_exist', 1)
+  end
+
+  def test_fetch_not_found
+    expect_not_found
+    assert_equal nil, @cache.fetch('not_exist')
+  end
+
   def test_should_read_and_write_strings
     assert @cache.write('foo', 'bar')
     assert_equal 'bar', @cache.read('foo')
@@ -82,6 +92,11 @@ class TestMemcachedStore < ActiveSupport::TestCase
     @cache.write('fu', 'baz')
     @cache.write('fud', 'biz')
     assert_equal({"foo" => "bar", "fu" => "baz"}, @cache.read_multi('foo', 'fu'))
+  end
+
+  def test_read_multi_not_found
+    expect_not_found
+    assert_equal({}, @cache.read_multi('foe', 'fue'))
   end
 
   def test_read_multi_with_expires
@@ -250,6 +265,11 @@ class TestMemcachedStore < ActiveSupport::TestCase
     assert_nil @cache.increment('bar')
   end
 
+  def test_increment_not_found
+    expect_not_found
+    assert_equal nil, @cache.increment('not_exist')
+  end
+
   def test_decrement
     @cache.write('foo', 3, :raw => true)
     assert_equal 3, @cache.read('foo').to_i
@@ -258,6 +278,11 @@ class TestMemcachedStore < ActiveSupport::TestCase
     assert_equal 1, @cache.decrement('foo')
     assert_equal 1, @cache.read('foo').to_i
     assert_nil @cache.decrement('bar')
+  end
+
+  def test_decrement_not_found
+    expect_not_found
+    assert_equal nil, @cache.decrement('not_exist')
   end
 
   def test_common_utf8_values
@@ -287,5 +312,11 @@ class TestMemcachedStore < ActiveSupport::TestCase
     options = {servers: ["localhost:21211", "localhost:11211"]}
     cache = ActiveSupport::Cache.lookup_store(:memcached_store, options)
     assert_equal [21211, 11211], cache.instance_variable_get(:@data).servers.map(&:port)
+  end
+
+  private
+
+  def expect_not_found
+    @cache.instance_variable_get(:@data).expects(:check_return_code).raises(Memcached::NotFound)
   end
 end

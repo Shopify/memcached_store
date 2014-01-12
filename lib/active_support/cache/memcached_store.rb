@@ -50,13 +50,18 @@ module ActiveSupport
         options = names.extract_options!
         options = merged_options(options)
         keys_to_names = Hash[names.map{|name| [escape_key(namespaced_key(name, options)), name]}]
-        raw_values = @data.get_multi(keys_to_names.keys, :raw => true)
         values = {}
-        raw_values.each do |key, value|
-          entry = deserialize_entry(value)
-          values[keys_to_names[key]] = entry.value unless entry.expired?
+
+        if raw_values = @data.get_multi(keys_to_names.keys, :raw => true)
+          raw_values.each do |key, value|
+            entry = deserialize_entry(value)
+            values[keys_to_names[key]] = entry.value unless entry.expired?
+          end
         end
         values
+      rescue *NONFATAL_EXCEPTIONS => e
+        @data.log_exception(e)
+        {}
       end
 
       def increment(name, amount = 1, options = nil) # :nodoc:
