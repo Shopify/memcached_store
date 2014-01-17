@@ -61,6 +61,12 @@ class TestMemcachedSnappyStore < ActiveSupport::TestCase
     assert_nil @cache.read(key)
   end
 
+  test "get should work when there is a connection fail" do
+    key = 'ponies2'
+    @cache.instance_variable_get(:@data).expects(:check_return_code).raises(Memcached::ConnectionFailure).at_least_once
+    assert_nil @cache.read(key)
+  end
+
   test "should use snappy to multi read cache entries but not on missing entries" do
     keys = %w{ one tow three }
     values = keys.map{ |k| k * 10 }
