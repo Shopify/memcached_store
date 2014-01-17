@@ -33,8 +33,11 @@ module ActiveSupport
       end
 
       def deserialize_entry(compressed_value)
-        decompressed_value = compressed_value.nil? ? compressed_value : Snappy.inflate(compressed_value)
-        super(decompressed_value)
+        if compressed_value
+          super(Snappy.inflate(compressed_value))
+        else
+          nil
+        end
       end
     end
   end
