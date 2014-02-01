@@ -1,4 +1,12 @@
-# MemcachedSnappyStore
+# ActiveSupport MemcachedStores
+
+This gem includes two memcached stores.
+
+### MemcachedStore
+
+ActiveSupport memcached store. This wraps the memcached gem into a ActiveSupport::Cache::Store, so it could be used inside Rails.
+
+### MemcachedSnappyStore
 
 ActiveSupport cache store that adds snappy compression at the cost of making the ```incr, decr, add``` operations unavailable. 
 
@@ -21,7 +29,10 @@ Or install it yourself as:
 In your environment file:
 
 ```ruby
+  # for memcached store
+  config.cache_store = :memcached_store,
 
+  # for snappy store
   config.cache_store = :memcached_snappy_store,  
     Memcached::Rails.new(:servers => ['memcached1.foo.com', 'memcached2.foo.com']) 
 
