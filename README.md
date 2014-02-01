@@ -1,4 +1,4 @@
-# ActiveSupport MemcachedStores
+# ActiveSupport MemcachedStore
 
 This gem includes two memcached stores.
 
@@ -29,12 +29,12 @@ Or install it yourself as:
 In your environment file:
 
 ```ruby
-  # for memcached store
-  config.cache_store = :memcached_store,
+# for memcached store
+config.cache_store = :memcached_store,
 
-  # for snappy store
-  config.cache_store = :memcached_snappy_store,  
-    Memcached::Rails.new(:servers => ['memcached1.foo.com', 'memcached2.foo.com']) 
+# for snappy store
+config.cache_store = :memcached_snappy_store,  
+  Memcached::Rails.new(:servers => ['memcached1.foo.com', 'memcached2.foo.com']) 
 
 ```
 
