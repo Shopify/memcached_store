@@ -314,6 +314,15 @@ class TestMemcachedStore < ActiveSupport::TestCase
     assert_equal [21211, 11211], cache.instance_variable_get(:@data).servers.map(&:port)
   end
 
+  def test_namespace_without_servers
+    options = {namespace: 'foo:'}
+    cache = ActiveSupport::Cache.lookup_store(:memcached_store, options)
+    client = cache.instance_variable_get(:@data)
+    assert_equal [11211], client.servers.map(&:port)
+    assert_equal "", client.prefix_key, "should not send the namespace to the client"
+    assert_equal "foo::key", cache.send(:namespaced_key, "key", cache.options)
+  end
+
   private
 
   def expect_not_found
