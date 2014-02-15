@@ -14,15 +14,21 @@ ActiveSupport cache store that adds snappy compression at the cost of making the
 
 Add this line to your application's Gemfile:
 
-    gem 'memcached_store'
+```
+gem 'memcached_store'
+```
 
 And then execute:
 
-    $ bundle
+```bash
+$ bundle
+```
 
 Or install it yourself as:
 
-    $ gem install memcached_store
+```bash
+$ gem install memcached_store
+```
 
 ## Usage
 
@@ -35,7 +41,6 @@ config.cache_store = :memcached_store,
 # for snappy store
 config.cache_store = :memcached_snappy_store,  
   Memcached::Rails.new(:servers => ['memcached1.foo.com', 'memcached2.foo.com']) 
-
 ```
 
 ## Code status
