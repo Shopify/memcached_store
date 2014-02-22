@@ -16,11 +16,11 @@ Gem::Specification.new do |gem|
   gem.require_paths = ["lib"]
   gem.version       = MemcachedStore::VERSION
   gem.add_runtime_dependency "activesupport", ">=  3.2"
-  gem.add_runtime_dependency "snappy", "0.0.4"
   gem.add_runtime_dependency "memcached", "~> 1.7.2"
 
   gem.add_development_dependency "rake"
   gem.add_development_dependency "minitest"
   gem.add_development_dependency "mocha"
   gem.add_development_dependency "timecop"
+  gem.add_development_dependency "snappy"
 end

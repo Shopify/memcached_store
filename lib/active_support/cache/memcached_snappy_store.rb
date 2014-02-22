@@ -1,5 +1,11 @@
+begin
+  require 'snappy'
+rescue LoadError => e
+  $stderr.puts "You don't have snappy installed in your application. Please add `gem \"snappy\"` to your Gemfile and run bundle install"
+  raise e
+end
+
 require 'active_support/cache/memcached_store'
-require 'snappy'
 
 module ActiveSupport
   module Cache
