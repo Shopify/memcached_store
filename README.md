@@ -45,7 +45,7 @@ config.cache_store = :memcached_snappy_store,
 
 ## Code status
 
-[![Build Status](https://travis-ci.org/Shopify/memcached_store.png?branch=master)](https://travis-ci.org/Shopify/memcached_store)
+[![Build Status](https://travis-ci.org/Shopify/memcached_store.svg?branch=master)](https://travis-ci.org/Shopify/memcached_store)
 
 ## Contributing
 
