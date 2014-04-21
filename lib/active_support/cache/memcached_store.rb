@@ -106,12 +106,12 @@ module ActiveSupport
 
         def write_entry(key, entry, options) # :nodoc:
           method = options && options[:unless_exist] ? :add : :set
-          value = options[:raw] ? entry.value.to_s : entry
           expires_in = options[:expires_in].to_i
           if expires_in > 0 && !options[:raw]
             # Set the memcache expire a few minutes in the future to support race condition ttls on read
             expires_in += 5.minutes
           end
+          value = serialize_entry(entry, options)
           @data.send(method, escape_key(key), value, expires_in, options[:raw])
         rescue *NONFATAL_EXCEPTIONS => e
           @data.log_exception(e)
@@ -143,6 +143,11 @@ module ActiveSupport
           else
             nil
           end
+        end
+
+        def serialize_entry(entry, options)
+          entry = entry.value.to_s if options[:raw]
+          entry
         end
 
     end

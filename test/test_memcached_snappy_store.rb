@@ -19,8 +19,8 @@ class TestMemcachedSnappyStore < ActiveSupport::TestCase
     end
   end
 
-  test "write should not allow  the implicit add operation when unless_exist is passed to write" do
-    assert_raise(ActiveSupport::Cache::MemcachedSnappyStore::UnsupportedOperation) do
+  test "write should allow  the implicit add operation when unless_exist is passed to write" do
+    assert_nothing_raised(ActiveSupport::Cache::MemcachedSnappyStore::UnsupportedOperation) do
       @cache.write('foo', 'bar', :unless_exist => true)
     end
   end
