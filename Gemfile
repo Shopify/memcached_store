@@ -13,4 +13,3 @@ end
 
 gem 'minitest', '~> 4.0' if version == "3.2.17"
 gem "activesupport", as_version
-gem 'memcached', "~> 1.7.2", github: 'fbogsany/memcached', ref: '5699f25'
