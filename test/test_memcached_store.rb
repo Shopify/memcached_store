@@ -108,11 +108,12 @@ class TestMemcachedStore < ActiveSupport::TestCase
   def test_cas_multi_with_partial_conflict
     @cache.write('foo', 'bar')
     @cache.write('fud', 'biz')
-    refute @cache.cas_multi('foo', 'fud') {|hash|
+    result = @cache.cas_multi('foo', 'fud') do |hash|
       assert_equal({"foo" => "bar", "fud" => "biz"}, hash)
       @cache.write('foo', 'bad')
       {"foo" => "baz", "fud" => "buz"}
-    }
+    end
+    assert result
     assert_equal({"foo" => "bad", "fud" => "buz"}, @cache.read_multi('foo', 'fud'))
   end
 
