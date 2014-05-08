@@ -11,5 +11,5 @@ else
   "~> #{version}"
 end
 
-gem 'minitest', '~> 4.0' if version == "3.2.17"
+gem 'minitest', '~> 4.0' if version == "3.2.18"
 gem "activesupport", as_version

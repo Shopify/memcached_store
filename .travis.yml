@@ -4,10 +4,11 @@ rvm:
   - 1.9.3
   - 2.0.0
   - 2.1.0
+  - 2.1.1
 env:
-  - "AS_VERSION=3.2.17"
-  - "AS_VERSION=4.0.3"
-  - "AS_VERSION=4.1.0.rc1"
+  - "AS_VERSION=3.2.18"
+  - "AS_VERSION=4.0.5"
+  - "AS_VERSION=4.1.0"
 matrix:
   allow_failures:
-    - env: "AS_VERSION=4.1.0.rc1"
+    - env: "AS_VERSION=4.1.0"
