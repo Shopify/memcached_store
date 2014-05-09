@@ -2,7 +2,7 @@ require 'test_helper'
 
 class TestMemcachedStore < ActiveSupport::TestCase
   setup do
-    @cache = ActiveSupport::Cache.lookup_store(:memcached_store, expires_in: 60)
+    @cache = ActiveSupport::Cache.lookup_store(:memcached_store, expires_in: 60, support_cas: true)
     @cache.clear
   end
 
@@ -49,6 +49,72 @@ class TestMemcachedStore < ActiveSupport::TestCase
     @cache.write('foo', nil)
     @cache.expects(:write).never
     assert_nil @cache.fetch('foo') { 'baz' }
+  end
+
+  def test_cas
+    @cache.write('foo', nil)
+    assert @cache.cas('foo') {|value| assert_nil value; 'bar' }
+    assert_equal 'bar', @cache.read('foo')
+  end
+
+  def test_cas_with_cache_miss
+    refute @cache.cas('not_exist') {|value| flunk }
+  end
+
+  def test_cas_with_conflict
+    @cache.write('foo', 'bar')
+    refute @cache.cas('foo') {|value|
+      @cache.write('foo', 'baz')
+      'biz'
+    }
+    assert_equal 'baz', @cache.read('foo')
+  end
+
+  def test_cas_multi_with_empty_set
+    refute @cache.cas_multi() {|hash| flunk }
+  end
+
+  def test_cas_multi
+    @cache.write('foo', 'bar')
+    @cache.write('fud', 'biz')
+    assert @cache.cas_multi('foo', 'fud') {|hash| assert_equal({"foo" => "bar", "fud" => "biz"}, hash); {"foo" => "baz", "fud" => "buz"} }
+    assert_equal({"foo" => "baz", "fud" => "buz"}, @cache.read_multi('foo', 'fud'))
+  end
+
+  def test_cas_multi_with_altered_key
+    @cache.write('foo', 'baz')
+    assert @cache.cas_multi('foo') {|hash| {'fu' => 'baz'}}
+    assert_nil @cache.read('fu')
+    assert_equal 'baz', @cache.read('foo')
+  end
+
+  def test_cas_multi_with_cache_miss
+    assert @cache.cas_multi('not_exist') {|hash| assert hash.empty?; {} }
+  end
+
+  def test_cas_multi_with_partial_miss
+    @cache.write('foo', 'baz')
+    assert @cache.cas_multi('foo', 'bar') {|hash| assert_equal({"foo" => "baz"}, hash); {} }
+    assert_equal 'baz', @cache.read('foo')
+  end
+
+  def test_cas_multi_with_partial_update
+    @cache.write('foo', 'bar')
+    @cache.write('fud', 'biz')
+    assert @cache.cas_multi('foo', 'fud') {|hash| assert_equal({"foo" => "bar", "fud" => "biz"}, hash); {"foo" => "baz"} }
+    assert_equal({"foo" => "baz", "fud" => "biz"}, @cache.read_multi('foo', 'fud'))
+  end
+
+  def test_cas_multi_with_partial_conflict
+    @cache.write('foo', 'bar')
+    @cache.write('fud', 'biz')
+    result = @cache.cas_multi('foo', 'fud') do |hash|
+      assert_equal({"foo" => "bar", "fud" => "biz"}, hash)
+      @cache.write('foo', 'bad')
+      {"foo" => "baz", "fud" => "buz"}
+    end
+    assert result
+    assert_equal({"foo" => "bad", "fud" => "buz"}, @cache.read_multi('foo', 'fud'))
   end
 
   def test_should_read_and_write_hash

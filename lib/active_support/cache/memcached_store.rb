@@ -64,6 +64,41 @@ module ActiveSupport
         {}
       end
 
+      def cas(name, options = nil)
+        options = merged_options(options)
+        options.merge!(:raw => true)
+        key = namespaced_key(name, options)
+
+        @data.cas(key, expiration(options), true) do |raw_value|
+          entry = deserialize_entry(raw_value)
+          value = yield entry.value
+          serialize_entry(Entry.new(value, options), options)
+        end
+      rescue *NONFATAL_EXCEPTIONS => e
+        @data.log_exception(e)
+        false
+      end
+
+      def cas_multi(*names)
+        options = names.extract_options!
+        options = merged_options(options)
+        options.merge!(:raw => true)
+        keys_to_names = Hash[names.map{|name| [escape_key(namespaced_key(name, options)), name]}]
+
+        @data.cas(keys_to_names.keys, expiration(options), true) do |raw_values|
+          values = {}
+          raw_values.each do |key, raw_value|
+            entry = deserialize_entry(raw_value)
+            values[keys_to_names[key]] = entry.value unless entry.expired?
+          end
+          values = yield values
+          Hash[values.map{|name, value| [escape_key(namespaced_key(name, options)), serialize_entry(Entry.new(value, options), options)]}]
+        end
+      rescue *NONFATAL_EXCEPTIONS => e
+        @data.log_exception(e)
+        false
+      end
+
       def increment(name, amount = 1, options = nil) # :nodoc:
         options = merged_options(options)
         instrument(:increment, name, :amount => amount) do
@@ -106,11 +141,7 @@ module ActiveSupport
 
         def write_entry(key, entry, options) # :nodoc:
           method = options && options[:unless_exist] ? :add : :set
-          expires_in = options[:expires_in].to_i
-          if expires_in > 0 && !options[:raw]
-            # Set the memcache expire a few minutes in the future to support race condition ttls on read
-            expires_in += 5.minutes
-          end
+          expires_in = expiration(options)
           value = serialize_entry(entry, options)
           @data.send(method, escape_key(key), value, expires_in, options[:raw])
         rescue *NONFATAL_EXCEPTIONS => e
@@ -148,6 +179,15 @@ module ActiveSupport
         def serialize_entry(entry, options)
           entry = entry.value.to_s if options[:raw]
           entry
+        end
+
+        def expiration(options)
+          expires_in = options[:expires_in].to_i
+          if expires_in > 0 && !options[:raw]
+            # Set the memcache expire a few minutes in the future to support race condition ttls on read
+            expires_in += 5.minutes
+          end
+          expires_in
         end
 
     end
