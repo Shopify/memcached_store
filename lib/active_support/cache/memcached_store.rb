@@ -66,10 +66,9 @@ module ActiveSupport
 
       def cas(name, options = nil)
         options = merged_options(options)
-        options.merge!(:raw => true)
         key = namespaced_key(name, options)
 
-        @data.cas(key, expiration(options), true) do |raw_value|
+        @data.cas(key, expiration(options), options[:raw]) do |raw_value|
           entry = deserialize_entry(raw_value)
           value = yield entry.value
           serialize_entry(Entry.new(value, options), options)
@@ -82,10 +81,9 @@ module ActiveSupport
       def cas_multi(*names)
         options = names.extract_options!
         options = merged_options(options)
-        options.merge!(:raw => true)
         keys_to_names = Hash[names.map{|name| [escape_key(namespaced_key(name, options)), name]}]
 
-        @data.cas(keys_to_names.keys, expiration(options), true) do |raw_values|
+        @data.cas(keys_to_names.keys, expiration(options), options[:raw]) do |raw_values|
           values = {}
           raw_values.each do |key, raw_value|
             entry = deserialize_entry(raw_value)
