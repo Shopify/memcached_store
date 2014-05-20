@@ -1,6 +1,6 @@
 dependencies:
   override:
-    - bundle install --path=./data/bundler
+    - bundle install --path=./data/bundler --without=default:production:test:staging:benchmark:debug
 
 deploy:
   override:
