@@ -52,10 +52,12 @@ module ActiveSupport
         keys_to_names = Hash[names.map{|name| [escape_key(namespaced_key(name, options)), name]}]
         values = {}
 
-        if raw_values = @data.get_multi(keys_to_names.keys, :raw => true)
-          raw_values.each do |key, value|
-            entry = deserialize_entry(value)
-            values[keys_to_names[key]] = entry.value unless entry.expired?
+        instrument(:read_multi, names, options) do
+          if raw_values = @data.get_multi(keys_to_names.keys, :raw => true)
+            raw_values.each do |key, value|
+              entry = deserialize_entry(value)
+              values[keys_to_names[key]] = entry.value unless entry.expired?
+            end
           end
         end
         values
@@ -66,13 +68,14 @@ module ActiveSupport
 
       def cas(name, options = nil)
         options = merged_options(options)
-        options.merge!(:raw => true)
         key = namespaced_key(name, options)
 
-        @data.cas(key, expiration(options), true) do |raw_value|
-          entry = deserialize_entry(raw_value)
-          value = yield entry.value
-          serialize_entry(Entry.new(value, options), options)
+        instrument(:cas, name, options) do
+          @data.cas(key, expiration(options), options[:raw]) do |raw_value|
+            entry = deserialize_entry(raw_value)
+            value = yield entry.value
+            serialize_entry(Entry.new(value, options), options)
+          end
         end
       rescue *NONFATAL_EXCEPTIONS => e
         @data.log_exception(e)
@@ -82,17 +85,18 @@ module ActiveSupport
       def cas_multi(*names)
         options = names.extract_options!
         options = merged_options(options)
-        options.merge!(:raw => true)
         keys_to_names = Hash[names.map{|name| [escape_key(namespaced_key(name, options)), name]}]
 
-        @data.cas(keys_to_names.keys, expiration(options), true) do |raw_values|
-          values = {}
-          raw_values.each do |key, raw_value|
-            entry = deserialize_entry(raw_value)
-            values[keys_to_names[key]] = entry.value unless entry.expired?
+        instrument(:cas_multi, names, options) do
+          @data.cas(keys_to_names.keys, expiration(options), options[:raw]) do |raw_values|
+            values = {}
+            raw_values.each do |key, raw_value|
+              entry = deserialize_entry(raw_value)
+              values[keys_to_names[key]] = entry.value unless entry.expired?
+            end
+            values = yield values
+            Hash[values.map{|name, value| [escape_key(namespaced_key(name, options)), serialize_entry(Entry.new(value, options), options)]}]
           end
-          values = yield values
-          Hash[values.map{|name, value| [escape_key(namespaced_key(name, options)), serialize_entry(Entry.new(value, options), options)]}]
         end
       rescue *NONFATAL_EXCEPTIONS => e
         @data.log_exception(e)
@@ -120,11 +124,11 @@ module ActiveSupport
       end
 
       def clear(options = nil)
-        @data.flush_all
+        instrument(:clear, options) { @data.flush_all }
       end
 
       def stats
-        @data.stats
+        instrument(:stats) { @data.stats }
       end
 
       def exist?(*args)
