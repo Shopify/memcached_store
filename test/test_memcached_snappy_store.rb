@@ -3,7 +3,7 @@ require 'test_helper'
 class TestMemcachedSnappyStore < ActiveSupport::TestCase
 
   setup do
-     @cache = ActiveSupport::Cache.lookup_store(:memcached_snappy_store)
+     @cache = ActiveSupport::Cache.lookup_store(:memcached_snappy_store, support_cas: true)
      @cache.clear
   end
 
@@ -97,5 +97,25 @@ class TestMemcachedSnappyStore < ActiveSupport::TestCase
 
     actual_cache_value = @cache.instance_variable_get(:@data).get(key, true)
     assert_equal 'value', Snappy.inflate(actual_cache_value)
+  end
+
+  test "cas should use snappy to read and write cache entries" do
+    entry_value = { :omg => 'data' }
+    update_value = 'value'
+    key = 'ponies'
+
+    @cache.write(key, entry_value)
+    result = @cache.cas(key) do |v|
+      assert_equal entry_value, v
+      update_value
+    end
+    assert_equal update_value, result
+    assert_equal update_value, @cache.read(key)
+
+    actual_cache_value = @cache.instance_variable_get(:@data).get(key, true)
+    serialized_entry = Snappy.inflate(actual_cache_value)
+    entry = Marshal.load(serialized_entry)
+    assert entry.is_a?(Entry)
+    assert_equal update_value, entry.value
   end
 end
