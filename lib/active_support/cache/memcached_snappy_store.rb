@@ -34,6 +34,10 @@ module ActiveSupport
           nil
         end
       end
+
+      def cas_raw?(options)
+        true
+      end
     end
   end
 end
