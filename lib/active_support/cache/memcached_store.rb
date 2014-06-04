@@ -71,7 +71,7 @@ module ActiveSupport
         key = namespaced_key(name, options)
 
         instrument(:cas, name, options) do
-          @data.cas(key, expiration(options), options[:raw]) do |raw_value|
+          @data.cas(key, expiration(options), cas_raw?(options)) do |raw_value|
             entry = deserialize_entry(raw_value)
             value = yield entry.value
             serialize_entry(Entry.new(value, options), options)
@@ -88,7 +88,7 @@ module ActiveSupport
         keys_to_names = Hash[names.map{|name| [escape_key(namespaced_key(name, options)), name]}]
 
         instrument(:cas_multi, names, options) do
-          @data.cas(keys_to_names.keys, expiration(options), options[:raw]) do |raw_values|
+          @data.cas(keys_to_names.keys, expiration(options), cas_raw?(options)) do |raw_values|
             values = {}
             raw_values.each do |key, raw_value|
               entry = deserialize_entry(raw_value)
@@ -183,6 +183,10 @@ module ActiveSupport
         def serialize_entry(entry, options)
           entry = entry.value.to_s if options[:raw]
           entry
+        end
+
+        def cas_raw?(options)
+          options[:raw]
         end
 
         def expiration(options)

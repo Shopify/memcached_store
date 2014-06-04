@@ -3,7 +3,7 @@ require 'test_helper'
 class TestMemcachedSnappyStore < ActiveSupport::TestCase
 
   setup do
-     @cache = ActiveSupport::Cache.lookup_store(:memcached_snappy_store)
+     @cache = ActiveSupport::Cache.lookup_store(:memcached_snappy_store, support_cas: true)
      @cache.clear
   end
 
@@ -97,5 +97,68 @@ class TestMemcachedSnappyStore < ActiveSupport::TestCase
 
     actual_cache_value = @cache.instance_variable_get(:@data).get(key, true)
     assert_equal 'value', Snappy.inflate(actual_cache_value)
+  end
+
+  test "cas should use snappy to read and write cache entries" do
+    entry_value = { :omg => 'data' }
+    update_value = 'value'
+    key = 'ponies'
+
+    @cache.write(key, entry_value)
+    result = @cache.cas(key) do |v|
+      assert_equal entry_value, v
+      update_value
+    end
+    assert result
+    assert_equal update_value, @cache.read(key)
+
+    actual_cache_value = @cache.instance_variable_get(:@data).get(key, true)
+    serialized_entry = Snappy.inflate(actual_cache_value)
+    entry = Marshal.load(serialized_entry)
+    assert entry.is_a?(ActiveSupport::Cache::Entry)
+    assert_equal update_value, entry.value
+  end
+
+  test "cas should support raw entries that don't use marshal format" do
+    key = 'key'
+    @cache.write(key, 'value', :raw => true)
+    result = @cache.cas(key, :raw => true) do |v|
+      assert_equal 'value', v
+      'new_value'
+    end
+    assert result
+    actual_cache_value = @cache.instance_variable_get(:@data).get(key, true)
+    assert_equal 'new_value', Snappy.inflate(actual_cache_value)
+  end
+
+  test "cas_multi should use snappy to read and write cache entries" do
+    keys = %w{ one two three }
+    values = keys.map{ |k| k * 10 }
+    update_hash = {"two" => "two" * 11}
+
+    keys.zip(values) { |k, v| @cache.write(k, v) }
+
+    result = @cache.cas_multi(*keys) do |hash|
+      assert_equal Hash[keys.zip(values)], hash
+      update_hash
+    end
+    assert result
+    assert_equal Hash[keys.zip(values)].merge(update_hash), @cache.read_multi(*keys)
+  end
+
+  test "cas_multi should support raw entries that don't use marshal format" do
+    keys = %w{ one two three }
+    values = keys.map{ |k| k * 10 }
+    update_hash = {"two" => "two" * 11}
+
+    keys.zip(values) { |k, v| @cache.write(k, v) }
+
+    result = @cache.cas_multi(*keys, :raw => true) do |hash|
+      assert_equal Hash[keys.zip(values)], hash
+      update_hash
+    end
+    assert result
+    actual_cache_value = @cache.instance_variable_get(:@data).get("two", true)
+    assert_equal update_hash["two"], Snappy.inflate(actual_cache_value)
   end
 end
