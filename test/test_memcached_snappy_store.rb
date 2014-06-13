@@ -132,9 +132,9 @@ class TestMemcachedSnappyStore < ActiveSupport::TestCase
   end
 
   test "cas_multi should use snappy to read and write cache entries" do
-    keys = %w{ one two three }
+    keys = %w{ one two three four }
     values = keys.map{ |k| k * 10 }
-    update_hash = {"two" => "two" * 11}
+    update_hash = Hash[keys.drop(1).map {|k| [k, k * 11] }]
 
     keys.zip(values) { |k, v| @cache.write(k, v) }
 
@@ -144,6 +144,14 @@ class TestMemcachedSnappyStore < ActiveSupport::TestCase
     end
     assert result
     assert_equal Hash[keys.zip(values)].merge(update_hash), @cache.read_multi(*keys)
+
+    update_hash.each do |key, value|
+      actual_cache_value = @cache.instance_variable_get(:@data).get(key, true)
+      serialized_entry = Snappy.inflate(actual_cache_value)
+      entry = Marshal.load(serialized_entry)
+      assert entry.is_a?(ActiveSupport::Cache::Entry)
+      assert_equal value, entry.value
+    end
   end
 
   test "cas_multi should support raw entries that don't use marshal format" do

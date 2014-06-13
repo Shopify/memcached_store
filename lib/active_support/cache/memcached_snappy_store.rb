@@ -23,8 +23,7 @@ module ActiveSupport
       private
       def serialize_entry(entry, options)
         value = options[:raw] ? entry.value.to_s : Marshal.dump(entry)
-        options[:raw] = true
-        Snappy.deflate(value)
+        [Snappy.deflate(value), true]
       end
 
       def deserialize_entry(compressed_value)
