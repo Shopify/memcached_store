@@ -132,9 +132,9 @@ class TestMemcachedSnappyStore < ActiveSupport::TestCase
   end
 
   test "cas_multi should use snappy to read and write cache entries" do
-    keys = %w{ one two three }
+    keys = %w{ one two three four }
     values = keys.map{ |k| k * 10 }
-    update_hash = {"two" => "two" * 11, "three" => "three" * 11}
+    update_hash = Hash[keys.drop(1).map {|k| [k, k * 11] }]
 
     keys.zip(values) { |k, v| @cache.write(k, v) }
 
