@@ -74,7 +74,7 @@ module ActiveSupport
           @data.cas(key, expiration(options), cas_raw?(options)) do |raw_value|
             entry = deserialize_entry(raw_value)
             value = yield entry.value
-            serialize_entry(Entry.new(value, options), options)
+            serialize_entry(Entry.new(value, options), options).first
           end
         end
       rescue *NONFATAL_EXCEPTIONS => e
@@ -95,7 +95,7 @@ module ActiveSupport
               values[keys_to_names[key]] = entry.value unless entry.expired?
             end
             values = yield values
-            Hash[values.map{|name, value| [escape_key(namespaced_key(name, options)), serialize_entry(Entry.new(value, options), options)]}]
+            Hash[values.map{|name, value| [escape_key(namespaced_key(name, options)), serialize_entry(Entry.new(value, options), options).first]}]
           end
         end
       rescue *NONFATAL_EXCEPTIONS => e
@@ -146,8 +146,8 @@ module ActiveSupport
         def write_entry(key, entry, options) # :nodoc:
           method = options && options[:unless_exist] ? :add : :set
           expires_in = expiration(options)
-          value = serialize_entry(entry, options)
-          @data.send(method, escape_key(key), value, expires_in, options[:raw])
+          value, raw = serialize_entry(entry, options)
+          @data.send(method, escape_key(key), value, expires_in, raw)
         rescue *NONFATAL_EXCEPTIONS => e
           @data.log_exception(e)
           false
@@ -182,7 +182,7 @@ module ActiveSupport
 
         def serialize_entry(entry, options)
           entry = entry.value.to_s if options[:raw]
-          entry
+          [entry, options[:raw]]
         end
 
         def cas_raw?(options)
