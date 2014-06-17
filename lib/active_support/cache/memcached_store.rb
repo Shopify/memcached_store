@@ -135,6 +135,13 @@ module ActiveSupport
         !!super
       end
 
+      def reset #:nodoc:
+        @data.reset
+      rescue *NONFATAL_EXCEPTIONS => e
+        @data.log_exception(e)
+        false
+      end
+
       protected
         def read_entry(key, options) # :nodoc:
           deserialize_entry(@data.get(escape_key(key), true))

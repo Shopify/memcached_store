@@ -388,6 +388,12 @@ class TestMemcachedStore < ActiveSupport::TestCase
     assert_equal "", client.prefix_key, "should not send the namespace to the client"
     assert_equal "foo::key", cache.send(:namespaced_key, "key", cache.options)
   end
+  
+  def test_reset
+    client = @cache.instance_variable_get(:@data)
+    client.expects(:reset).once
+    @cache.reset
+  end
 
   private
 
