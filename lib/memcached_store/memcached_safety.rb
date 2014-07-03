@@ -23,6 +23,7 @@ module MemcachedStore
     def exist_with_rescue?(*args)
       exist_without_rescue?(*args)
     rescue *NONFATAL_EXCEPTIONS
+      report_exception($!)
     end
     alias_method :exist_without_rescue?, :exist?
     alias_method :exist?, :exist_with_rescue?
@@ -30,6 +31,7 @@ module MemcachedStore
     def cas_with_rescue(*args)
       cas_without_rescue(*args)
     rescue *NONFATAL_EXCEPTIONS
+      report_exception($!)
       false
     end
     alias_method_chain :cas, :rescue
@@ -37,6 +39,7 @@ module MemcachedStore
     def get_multi_with_rescue(*args)
       get_multi_without_rescue(*args)
     rescue *NONFATAL_EXCEPTIONS
+      report_exception($!)
       {}
     end
     alias_method_chain :get_multi, :rescue
@@ -44,6 +47,7 @@ module MemcachedStore
     def set_with_rescue(*args)
       set_without_rescue(*args)
     rescue *NONFATAL_EXCEPTIONS
+      report_exception($!)
       false
     end
     alias_method_chain :set, :rescue
@@ -51,6 +55,7 @@ module MemcachedStore
     def add_with_rescue(*args)
       add_without_rescue(*args)
     rescue *NONFATAL_EXCEPTIONS
+      report_exception($!)
       @string_return_types? "NOT STORED\r\n" : true
     end
     alias_method_chain :add, :rescue
@@ -60,9 +65,20 @@ module MemcachedStore
         def #{meth}_with_rescue(*args)
           #{meth}_without_rescue(*args)
         rescue *NONFATAL_EXCEPTIONS
+          report_exception($!)
         end
         alias_method_chain :#{meth}, :rescue
       ENV
+    end
+
+
+    private
+
+    def report_exception(exception)
+      if defined?(::Rails)
+        Rails.logger.error "[#{self.class}] exception=#{exception}"
+      end
+      nil # make sure return value is nil
     end
   end
 end
