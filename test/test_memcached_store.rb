@@ -16,6 +16,19 @@ class TestMemcachedStore < ActiveSupport::TestCase
     assert_equal nil, @cache.fetch('not_exist')
   end
 
+  def test_fetch_nil_key_with_block_yields_block_uncached
+    first = @cache.fetch(nil) { 1 }
+    second = @cache.fetch(nil) { 2 }
+    assert_equal 1, first
+    assert_equal 2, second
+  end
+
+  def test_fetch_nil_key_without_block_raises
+    assert_raises(ArgumentError) do
+      @cache.fetch(nil)
+    end
+  end
+
   def test_should_read_and_write_strings
     assert @cache.write('foo', 'bar')
     assert_equal 'bar', @cache.read('foo')

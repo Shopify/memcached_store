@@ -46,6 +46,16 @@ module ActiveSupport
         extend Strategy::LocalCache
       end
 
+      def fetch(name, options = nil)
+        return super unless name.nil?
+
+        if block_given?
+          yield
+        else
+          raise ArgumentError, "name can't be nil"
+        end
+      end
+
       def read_multi(*names)
         options = names.extract_options!
         options = merged_options(options)
