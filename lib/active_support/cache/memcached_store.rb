@@ -198,10 +198,11 @@ module ActiveSupport
         end
 
         def deserialize(data, options)
-          if options[:raw]
+          if data.nil? || options[:raw]
             data
           elsif options[:use_msgpack]
-            MessagePack.unpack(data)
+            data = MessagePack.unpack(data) if b = data.unpack("C").first and b == 0x83 or b == 0x84
+            data
           else
             Marshal.load(data)
           end
