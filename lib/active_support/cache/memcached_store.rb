@@ -186,8 +186,8 @@ module ActiveSupport
             if entry.is_a?(Entry)
               entry
             elsif entry.is_a?(Hash)
-              e = Entry.new(entry[:value], entry)
-              e.instance_variable_set(:@created_at, entry[:created_at])
+              e = Entry.new(entry["value"], entry)
+              e.instance_variable_set(:@created_at, entry["created_at"])
               e
             else
               Entry.new(entry)
