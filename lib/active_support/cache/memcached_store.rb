@@ -172,6 +172,22 @@ module ActiveSupport
 
       private
 
+        def handle_expired_entry(entry, key, options)
+          if entry && entry.expired?
+            race_ttl = options[:race_condition_ttl].to_i
+            if race_ttl && (Time.now.to_f - entry.expires_at <= race_ttl)
+              # When an entry has :race_condition_ttl defined, put the stale entry back into the cache
+              # for a brief period while the entry is begin recalculated.
+              entry.expires_at = Time.now + race_ttl
+              write_entry(key, entry, options.merge(:expires_in => race_ttl * 2))
+            else
+              delete_entry(key, options)
+            end
+            entry = nil
+          end
+          entry
+        end
+
         def escape_key(key)
           key = key.to_s.dup
           key = key.force_encoding(Encoding::ASCII_8BIT)
