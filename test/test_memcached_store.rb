@@ -405,7 +405,7 @@ end
 class ActiveSupport::Cache::Entry
   def to_msgpack(io=nil)
     h = {created_at: @created_at, expires_in: @expires_in, value: @value}
-    h[:compressed] = @compressed if compressed?
+    h[:compress] = @compressed if compressed?
     h.to_msgpack(io)
   end
 end

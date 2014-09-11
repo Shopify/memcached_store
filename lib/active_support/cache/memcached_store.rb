@@ -186,7 +186,7 @@ module ActiveSupport
             if entry.is_a?(Entry)
               entry
             elsif entry.is_a?(Hash)
-              e = Entry.new(entry["value"], entry)
+              e = Entry.new(entry["value"], expires_in: entry["expires_in"], compress: entry["compress"])
               e.instance_variable_set(:@created_at, entry["created_at"])
               e
             else
