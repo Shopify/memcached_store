@@ -198,7 +198,9 @@ module ActiveSupport
         end
 
         def deserialize(data, options)
-          if options[:use_msgpack]
+          if options[:raw]
+            data
+          elsif options[:use_msgpack]
             MessagePack.unpack(data)
           else
             Marshal.load(data)
@@ -206,10 +208,10 @@ module ActiveSupport
         end
 
         def serialize_entry(entry, options)
-          if options[:use_msgpack]
-            [MessagePack.pack(entry), true]
-          elsif options[:raw]
+          if options[:raw]
             [entry.value.to_s, true]
+          elsif options[:use_msgpack]
+            [MessagePack.pack(entry), true]
           else
             [entry, false]
           end
