@@ -402,6 +402,14 @@ class TestMemcachedStore < ActiveSupport::TestCase
   end
 end
 
+class ActiveSupport::Cache::Entry
+  def to_msgpack(io=nil)
+    h = {created_at: @created_at, expires_in: @expires_in, value: @value}
+    h[:compressed] = @compressed if compressed?
+    h.to_msgpack(io)
+  end
+end
+
 class TestWithMsgPack < TestMemcachedStore
   setup do
     @cache = ActiveSupport::Cache.lookup_store(:memcached_store, expires_in: 60, support_cas: true, use_msgpack: true)

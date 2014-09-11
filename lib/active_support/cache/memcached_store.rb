@@ -183,7 +183,15 @@ module ActiveSupport
         def deserialize_entry(raw_value, options)
           if raw_value
             entry = deserialize(raw_value, options) rescue raw_value
-            entry.is_a?(Entry) ? entry : Entry.new(entry)
+            if entry.is_a?(Entry)
+              entry
+            elsif entry.is_a?(Hash)
+              e = Entry.new(entry[:value], entry)
+              e.instance_variable_set(:@created_at, entry[:created_at])
+              e
+            else
+              Entry.new(entry)
+            end
           else
             nil
           end
@@ -208,7 +216,7 @@ module ActiveSupport
         end
 
         def cas_raw?(options)
-          options[:raw]
+          options[:raw] || options[:use_msgpack]
         end
 
         def expiration(options)
