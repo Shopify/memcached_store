@@ -22,13 +22,14 @@ module ActiveSupport
 
       private
       def serialize_entry(entry, options)
-        value = options[:raw] ? entry.value.to_s : Marshal.dump(entry)
+        value, raw = super(entry, options)
+        value = Marshal.dump(value) unless raw
         [Snappy.deflate(value), true]
       end
 
-      def deserialize_entry(compressed_value)
+      def deserialize_entry(compressed_value, options)
         if compressed_value
-          super(Snappy.inflate(compressed_value))
+          super(Snappy.inflate(compressed_value), options)
         else
           nil
         end

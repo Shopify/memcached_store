@@ -1,5 +1,6 @@
 # file havily based out off https://github.com/rails/rails/blob/3-2-stable/activesupport/lib/active_support/cache/mem_cache_store.rb
 require 'digest/md5'
+require 'msgpack'
 
 module ActiveSupport
   module Cache
@@ -40,6 +41,7 @@ module ActiveSupport
         else
           mem_cache_options = options.dup
           UNIVERSAL_OPTIONS.each{|name| mem_cache_options.delete(name)}
+          mem_cache_options.delete(:use_msgpack)
           @data = Memcached::Rails.new(*(addresses + [mem_cache_options]))
         end
 
@@ -55,7 +57,7 @@ module ActiveSupport
         instrument(:read_multi, names, options) do
           if raw_values = @data.get_multi(keys_to_names.keys, :raw => true)
             raw_values.each do |key, value|
-              entry = deserialize_entry(value)
+              entry = deserialize_entry(value, options)
               values[keys_to_names[key]] = entry.value unless entry.expired?
             end
           end
@@ -72,7 +74,7 @@ module ActiveSupport
 
         instrument(:cas, name, options) do
           @data.cas(key, expiration(options), cas_raw?(options)) do |raw_value|
-            entry = deserialize_entry(raw_value)
+            entry = deserialize_entry(raw_value, options)
             value = yield entry.value
             serialize_entry(Entry.new(value, options), options).first
           end
@@ -91,7 +93,7 @@ module ActiveSupport
           @data.cas(keys_to_names.keys, expiration(options), cas_raw?(options)) do |raw_values|
             values = {}
             raw_values.each do |key, raw_value|
-              entry = deserialize_entry(raw_value)
+              entry = deserialize_entry(raw_value, options)
               values[keys_to_names[key]] = entry.value unless entry.expired?
             end
             values = yield values
@@ -144,7 +146,7 @@ module ActiveSupport
 
       protected
         def read_entry(key, options) # :nodoc:
-          deserialize_entry(@data.get(escape_key(key), true))
+          deserialize_entry(@data.get(escape_key(key), true), options)
         rescue *NONFATAL_EXCEPTIONS => e
           @data.log_exception(e)
           nil
@@ -178,18 +180,31 @@ module ActiveSupport
           key
         end
 
-        def deserialize_entry(raw_value)
+        def deserialize_entry(raw_value, options)
           if raw_value
-            entry = Marshal.load(raw_value) rescue raw_value
+            entry = deserialize(raw_value, options) rescue raw_value
             entry.is_a?(Entry) ? entry : Entry.new(entry)
           else
             nil
           end
         end
 
+        def deserialize(data, options)
+          if options[:use_msgpack]
+            MessagePack.unpack(data)
+          else
+            Marshal.load(data)
+          end
+        end
+
         def serialize_entry(entry, options)
-          entry = entry.value.to_s if options[:raw]
-          [entry, options[:raw]]
+          if options[:use_msgpack]
+            [MessagePack.pack(entry), true]
+          elsif options[:raw]
+            [entry.value.to_s, true]
+          else
+            [entry, false]
+          end
         end
 
         def cas_raw?(options)

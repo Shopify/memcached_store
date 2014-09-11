@@ -401,3 +401,9 @@ class TestMemcachedStore < ActiveSupport::TestCase
     @cache.instance_variable_get(:@data).expects(:check_return_code).raises(Memcached::NotFound)
   end
 end
+
+class TestWithMsgPack < TestMemcachedStore
+  setup do
+    @cache = ActiveSupport::Cache.lookup_store(:memcached_store, expires_in: 60, support_cas: true, use_msgpack: true)
+  end
+end
