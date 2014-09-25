@@ -450,7 +450,7 @@ class TestMemcachedStore < ActiveSupport::TestCase
 
   def test_write_with_read_only_should_not_send_activesupport_notification
     with_instrumented_cache_store do
-      assert_no_notifications(/cache/) do
+      assert_notifications(/cache/, num: 0) do
         with_read_only(@cache) do
           assert @cache.write("walrus", "bestest")
         end
@@ -460,7 +460,7 @@ class TestMemcachedStore < ActiveSupport::TestCase
 
   def test_delete_with_read_only_should_not_send_activesupport_notification
     with_instrumented_cache_store do
-      assert_no_notifications(/cache/) do
+      assert_notifications(/cache/, num: 0) do
         with_read_only(@cache) do
           assert @cache.delete("walrus")
         end
@@ -474,7 +474,7 @@ class TestMemcachedStore < ActiveSupport::TestCase
 
     Timecop.travel(Time.now + expires_in + 1) do
       with_instrumented_cache_store do
-        assert_no_notifications(/cache_write/) do
+        assert_notifications(/cache_write/, num: 0) do
           with_read_only(@cache) do
             @cache.fetch("walrus") { "no" }
           end
@@ -493,7 +493,7 @@ class TestMemcachedStore < ActiveSupport::TestCase
 
     Timecop.travel(Time.now + expires_in + 1) do
       with_instrumented_cache_store do
-        assert_no_notifications(/cache_write/) do
+        assert_notifications(/cache_write/, num: 0) do
           with_read_only(@cache) do
             @cache.fetch("walrus", expires_in: expires_in, race_condition_ttl: race_condition_ttl) { "no" }
           end
@@ -519,7 +519,7 @@ class TestMemcachedStore < ActiveSupport::TestCase
     Thread.current[:instrument_cache_store] = previous
   end
 
-  def assert_no_notifications(pattern)
+  def assert_notifications(pattern, num: 1)
     subscriber = ActiveSupport::Notifications.subscribe(pattern) do |name, start, finish, id, payload|
       flunk "Expected to not send any notifications matching #{pattern}, but got #{name}: #{payload}"
     end
