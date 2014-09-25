@@ -395,7 +395,67 @@ class TestMemcachedStore < ActiveSupport::TestCase
     @cache.reset
   end
 
+  def test_write_to_read_only_memcached_store_should_not_write
+    with_read_only(@cache) do
+      assert @cache.write("walrus", "awesome"), "Writing to a disabled memcached
+      store should return truthy to make clients not care"
+
+      assert_nil @cache.read("walrus"), "Key should have nil value in disabled cache"
+    end
+  end
+
+  def test_delete_with_read_only_memcached_store_should_not_delete
+    assert @cache.write("walrus", "big")
+
+    with_read_only(@cache) do
+      assert @cache.delete("walrus"), "Should return truthy when deleted to not raise in client"
+    end
+
+    assert_equal "big", @cache.read("walrus"), "Cache entry should not have been deleted from read only client"
+  end
+
+  def test_cas_with_read_only_memcached_store_should_not_s
+    called_block = false
+    @cache.write('walrus', 'slimy')
+
+    with_read_only(@cache) do
+      assert(@cache.cas('walrus') { |value| 
+        assert_equal 'slimy', value
+        called_block = true
+        'full'
+      })
+    end
+
+    assert_equal 'slimy', @cache.read('walrus')
+    assert called_block, "CAS with read only should have called the inner block with an assertion"
+  end
+
+  def test_cas_multi_with_read_only_memcached_store_should_not_s
+    called_block = false
+
+    @cache.write('walrus', 'cool')
+    @cache.write('narwhal', 'horn')
+
+    with_read_only(@cache) do
+      assert(@cache.cas_multi('walrus', 'narwhal') {
+        called_block = true
+        { "walrus" => "not cool", "narwhal" => "not with horns" }
+      })
+    end
+
+    assert_equal 'cool', @cache.read('walrus')
+    assert_equal 'horn', @cache.read('narwhal')
+    assert called_block, "CAS with read only should have called the inner block with an assertion"
+  end
+
   private
+
+  def with_read_only(client)
+    previous, client.read_only = client.read_only, true
+    yield
+  ensure
+    client.read_only = previous
+  end
 
   def expect_not_found
     @cache.instance_variable_get(:@data).expects(:check_return_code).raises(Memcached::NotFound)
