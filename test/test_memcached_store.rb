@@ -509,6 +509,34 @@ class TestMemcachedStore < ActiveSupport::TestCase
     end
   end
 
+  def test_cas_with_read_only_should_send_activesupport_notification
+    @cache.write("walrus", "yes")
+
+    with_read_only(@cache) do
+      assert_notifications(/cache_cas/, num: 1) do
+        assert(@cache.cas("walrus") { |value| "no" })
+      end
+    end
+
+    assert_equal "yes", @cache.fetch("walrus")
+  end
+
+  def test_cas_multi_with_read_only_should_send_activesupport_notification
+    @cache.write("walrus", "yes")
+    @cache.write("narwhal", "yes")
+
+    with_read_only(@cache) do
+      assert_notifications(/cache_cas/, num: 1) do
+        assert(@cache.cas_multi("walrus", "narwhal") { |*values|
+          { "walrus" => "no", "narwhal" => "no" }
+        })
+      end
+    end
+
+    assert_equal "yes", @cache.fetch("walrus")
+    assert_equal "yes", @cache.fetch("narwhal")
+  end
+
   private
 
   # This can be disabled in Rails 5, where the cache is always instrumented.
