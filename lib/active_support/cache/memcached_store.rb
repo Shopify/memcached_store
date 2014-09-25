@@ -30,6 +30,8 @@ module ActiveSupport
 
       ESCAPE_KEY_CHARS = /[\x00-\x20%\x7F-\xFF]/n
 
+      attr_accessor :read_only
+
       def initialize(*addresses)
         addresses = addresses.flatten
         options = addresses.extract_options!
@@ -74,6 +76,7 @@ module ActiveSupport
           @data.cas(key, expiration(options), cas_raw?(options)) do |raw_value|
             entry = deserialize_entry(raw_value)
             value = yield entry.value
+            break true if read_only
             serialize_entry(Entry.new(value, options), options).first
           end
         end
@@ -83,6 +86,7 @@ module ActiveSupport
       end
 
       def cas_multi(*names)
+
         options = names.extract_options!
         options = merged_options(options)
         keys_to_names = Hash[names.map{|name| [escape_key(namespaced_key(name, options)), name]}]
@@ -95,6 +99,7 @@ module ActiveSupport
               values[keys_to_names[key]] = entry.value unless entry.expired?
             end
             values = yield values
+            break true if read_only
             Hash[values.map{|name, value| [escape_key(namespaced_key(name, options)), serialize_entry(Entry.new(value, options), options).first]}]
           end
         end
@@ -151,6 +156,7 @@ module ActiveSupport
         end
 
         def write_entry(key, entry, options) # :nodoc:
+          return true if read_only
           method = options && options[:unless_exist] ? :add : :set
           expires_in = expiration(options)
           value, raw = serialize_entry(entry, options)
@@ -161,6 +167,7 @@ module ActiveSupport
         end
 
         def delete_entry(key, options) # :nodoc:
+          return true if read_only
           @data.delete(escape_key(key))
           true
         rescue *NONFATAL_EXCEPTIONS => e
