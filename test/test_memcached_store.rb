@@ -448,7 +448,86 @@ class TestMemcachedStore < ActiveSupport::TestCase
     assert called_block, "CAS with read only should have called the inner block with an assertion"
   end
 
+  def test_write_with_read_only_should_not_send_activesupport_notification
+    with_instrumented_cache_store do
+      assert_no_notifications(/cache/) do
+        with_read_only(@cache) do
+          assert @cache.write("walrus", "bestest")
+        end
+      end
+    end
+  end
+
+  def test_delete_with_read_only_should_not_send_activesupport_notification
+    with_instrumented_cache_store do
+      assert_no_notifications(/cache/) do
+        with_read_only(@cache) do
+          assert @cache.delete("walrus")
+        end
+      end
+    end
+  end
+
+  def test_fetch_with_expires_in_with_read_only_should_not_send_activesupport_notification
+    expires_in = 10
+    @cache.fetch("walrus", expires_in: expires_in) { "yo" }
+
+    Timecop.travel(Time.now + expires_in + 1) do
+      with_instrumented_cache_store do
+        assert_no_notifications(/cache_write/) do
+          with_read_only(@cache) do
+            @cache.fetch("walrus") { "no" }
+          end
+        end
+      end
+    end
+
+    # Cache entry should have been deleted since it expired
+    refute @cache.fetch("walrus")
+  end
+
+  def test_fetch_with_race_condition_ttl_with_read_only_should_not_send_activesupport_notification
+    expires_in = 10
+    race_condition_ttl = 10
+    @cache.fetch("walrus", expires_in: expires_in) { "yo" }
+
+    Timecop.travel(Time.now + expires_in + 1) do
+      with_instrumented_cache_store do
+        assert_no_notifications(/cache_write/) do
+          with_read_only(@cache) do
+            @cache.fetch("walrus", expires_in: expires_in, race_condition_ttl: race_condition_ttl) { "no" }
+          end
+
+          assert_equal "yo", @cache.fetch("walrus")
+        end
+      end
+    end
+
+    # We allow extending the cache expiration time with `race_condition_ttl`.
+    Timecop.travel(Time.now + expires_in + race_condition_ttl + 1) do
+      refute @cache.fetch("walrus")
+    end
+  end
+
   private
+
+  # This can be disabled in Rails 5, where the cache is always instrumented.
+  def with_instrumented_cache_store
+    previous, Thread.current[:instrument_cache_store] = Thread.current[:instrument_cache_store], true
+    yield
+  ensure
+    Thread.current[:instrument_cache_store] = previous
+  end
+
+  def assert_no_notifications(pattern)
+    subscriber = ActiveSupport::Notifications.subscribe(pattern) do |name, start, finish, id, payload|
+      flunk "Expected to not send any notifications matching #{pattern}, but got #{name}: #{payload}"
+    end
+
+    yield
+
+    ActiveSupport::Notifications.unsubscribe(subscriber)
+  end
 
   def with_read_only(client)
     previous, client.read_only = client.read_only, true

@@ -48,6 +48,16 @@ module ActiveSupport
         extend Strategy::LocalCache
       end
 
+      def write(*args)
+        return true if read_only
+        super(*args)
+      end
+
+      def delete(*args)
+        return true if read_only
+        super(*args)
+      end
+
       def read_multi(*names)
         options = names.extract_options!
         options = merged_options(options)
@@ -156,7 +166,6 @@ module ActiveSupport
         end
 
         def write_entry(key, entry, options) # :nodoc:
-          return true if read_only
           method = options && options[:unless_exist] ? :add : :set
           expires_in = expiration(options)
           value, raw = serialize_entry(entry, options)
@@ -167,7 +176,6 @@ module ActiveSupport
         end
 
         def delete_entry(key, options) # :nodoc:
-          return true if read_only
           @data.delete(escape_key(key))
           true
         rescue *NONFATAL_EXCEPTIONS => e
