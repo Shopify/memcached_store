@@ -20,6 +20,11 @@ module ActiveSupport
         raise UnsupportedOperation.new("decrement is not supported by: #{self.class.name}")
       end
 
+      # IdentityCache has its own handling for read only.
+      def read_only
+        false
+      end
+
       private
       def serialize_entry(entry, options)
         value = options[:raw] ? entry.value.to_s : Marshal.dump(entry)
