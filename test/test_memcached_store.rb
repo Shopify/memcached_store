@@ -4,6 +4,9 @@ class TestMemcachedStore < ActiveSupport::TestCase
   setup do
     @cache = ActiveSupport::Cache.lookup_store(:memcached_store, expires_in: 60, support_cas: true)
     @cache.clear
+
+    # Enable ActiveSupport notifications. Can be disabled in Rails 5.
+    Thread.current[:instrument_cache_store] = true
   end
 
   def test_write_not_found
@@ -449,21 +452,17 @@ class TestMemcachedStore < ActiveSupport::TestCase
   end
 
   def test_write_with_read_only_should_not_send_activesupport_notification
-    with_instrumented_cache_store do
-      assert_notifications(/cache/, num: 0) do
-        with_read_only(@cache) do
-          assert @cache.write("walrus", "bestest")
-        end
+    assert_notifications(/cache/, 0) do
+      with_read_only(@cache) do
+        assert @cache.write("walrus", "bestest")
       end
     end
   end
 
   def test_delete_with_read_only_should_not_send_activesupport_notification
-    with_instrumented_cache_store do
-      assert_notifications(/cache/, num: 0) do
-        with_read_only(@cache) do
-          assert @cache.delete("walrus")
-        end
+    assert_notifications(/cache/, 0) do
+      with_read_only(@cache) do
+        assert @cache.delete("walrus")
       end
     end
   end
@@ -473,11 +472,9 @@ class TestMemcachedStore < ActiveSupport::TestCase
     @cache.fetch("walrus", expires_in: expires_in) { "yo" }
 
     Timecop.travel(Time.now + expires_in + 1) do
-      with_instrumented_cache_store do
-        assert_notifications(/cache_write/, num: 0) do
-          with_read_only(@cache) do
-            @cache.fetch("walrus") { "no" }
-          end
+      assert_notifications(/cache_write/, 0) do
+        with_read_only(@cache) do
+          @cache.fetch("walrus") { "no" }
         end
       end
     end
@@ -492,14 +489,12 @@ class TestMemcachedStore < ActiveSupport::TestCase
     @cache.fetch("walrus", expires_in: expires_in) { "yo" }
 
     Timecop.travel(Time.now + expires_in + 1) do
-      with_instrumented_cache_store do
-        assert_notifications(/cache_write/, num: 0) do
-          with_read_only(@cache) do
-            @cache.fetch("walrus", expires_in: expires_in, race_condition_ttl: race_condition_ttl) { "no" }
-          end
-
-          assert_equal "yo", @cache.fetch("walrus")
+      assert_notifications(/cache_write/, 0) do
+        with_read_only(@cache) do
+          @cache.fetch("walrus", expires_in: expires_in, race_condition_ttl: race_condition_ttl) { "no" }
         end
+
+        assert_equal "yo", @cache.fetch("walrus")
       end
     end
 
@@ -513,7 +508,7 @@ class TestMemcachedStore < ActiveSupport::TestCase
     @cache.write("walrus", "yes")
 
     with_read_only(@cache) do
-      assert_notifications(/cache_cas/, num: 1) do
+      assert_notifications(/cache_cas/, 1) do
         assert(@cache.cas("walrus") { |value| "no" })
       end
     end
@@ -526,7 +521,7 @@ class TestMemcachedStore < ActiveSupport::TestCase
     @cache.write("narwhal", "yes")
 
     with_read_only(@cache) do
-      assert_notifications(/cache_cas/, num: 1) do
+      assert_notifications(/cache_cas/, 1) do
         assert(@cache.cas_multi("walrus", "narwhal") { |*values|
           { "walrus" => "no", "narwhal" => "no" }
         })
@@ -539,20 +534,15 @@ class TestMemcachedStore < ActiveSupport::TestCase
 
   private
 
-  # This can be disabled in Rails 5, where the cache is always instrumented.
-  def with_instrumented_cache_store
-    previous, Thread.current[:instrument_cache_store] = Thread.current[:instrument_cache_store], true
-    yield
-  ensure
-    Thread.current[:instrument_cache_store] = previous
-  end
-
-  def assert_notifications(pattern, num: 1)
+  def assert_notifications(pattern, num)
+    count = 0
     subscriber = ActiveSupport::Notifications.subscribe(pattern) do |name, start, finish, id, payload|
-      flunk "Expected to not send any notifications matching #{pattern}, but got #{name}: #{payload}"
+      count += 1
     end
 
     yield
+
+    assert_equal num, count
 
     ActiveSupport::Notifications.unsubscribe(subscriber)
   end
