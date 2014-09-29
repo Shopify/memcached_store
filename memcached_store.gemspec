@@ -23,5 +23,4 @@ Gem::Specification.new do |gem|
   gem.add_development_dependency "mocha"
   gem.add_development_dependency "timecop"
   gem.add_development_dependency "snappy"
-  gem.add_development_dependency "byebug"
 end
