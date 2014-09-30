@@ -478,9 +478,39 @@ class TestMemcachedStore < ActiveSupport::TestCase
         end
       end
     end
+  end
 
-    # Cache entry should have been deleted since it expired
-    refute @cache.fetch("walrus")
+  def test_fetch_with_expired_entry_should_return_nil_and_not_delete_from_cache
+    expires_in = 10
+    @cache.fetch("walrus", expires_in: expires_in) { "yo" }
+
+    Timecop.travel(Time.now + expires_in + 1) do
+      with_read_only(@cache) do
+        value = @cache.fetch("walrus", expires_in: expires_in) { "no" }
+
+        assert_equal "no", value
+        refute @cache.fetch("walrus"), "Client should return nil for expired key"
+        assert_equal "yo", @cache.instance_variable_get(:@data).get("walrus").value
+      end
+    end
+  end
+
+  def test_fetch_with_expired_entry_and_race_condition_ttl_should_return_nil_and_not_delete_from_cache
+    expires_in = 10
+    race_condition_ttl = 10
+    @cache.fetch("walrus", expires_in: expires_in) { "yo" }
+
+    Timecop.travel(Time.now + expires_in + 1) do
+      with_read_only(@cache) do
+        value = @cache.fetch("walrus", expires_in: expires_in, race_condition_ttl: race_condition_ttl) { "no" }
+
+        assert_equal "no", value
+        assert_equal "no", @cache.fetch("walrus") { "no" }
+        refute @cache.fetch("walrus")
+
+        assert_equal "yo", @cache.instance_variable_get(:@data).get("walrus").value
+      end
+    end
   end
 
   def test_fetch_with_race_condition_ttl_with_read_only_should_not_send_activesupport_notification
@@ -493,14 +523,7 @@ class TestMemcachedStore < ActiveSupport::TestCase
         with_read_only(@cache) do
           @cache.fetch("walrus", expires_in: expires_in, race_condition_ttl: race_condition_ttl) { "no" }
         end
-
-        assert_equal "yo", @cache.fetch("walrus")
       end
-    end
-
-    # We allow extending the cache expiration time with `race_condition_ttl`.
-    Timecop.travel(Time.now + expires_in + race_condition_ttl + 1) do
-      refute @cache.fetch("walrus")
     end
   end
 
