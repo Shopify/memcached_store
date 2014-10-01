@@ -166,7 +166,7 @@ module ActiveSupport
         end
 
         def write_entry(key, entry, options) # :nodoc:
-          return if read_only
+          return true if read_only
           method = options && options[:unless_exist] ? :add : :set
           expires_in = expiration(options)
           value, raw = serialize_entry(entry, options)
@@ -177,7 +177,7 @@ module ActiveSupport
         end
 
         def delete_entry(key, options) # :nodoc:
-          return if read_only
+          return true if read_only
           @data.delete(escape_key(key))
           true
         rescue *NONFATAL_EXCEPTIONS => e
