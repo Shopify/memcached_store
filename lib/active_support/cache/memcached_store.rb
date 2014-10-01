@@ -48,6 +48,16 @@ module ActiveSupport
         extend Strategy::LocalCache
       end
 
+      def write(*args)
+        return true if read_only
+        super(*args)
+      end
+
+      def delete(*args)
+        return true if read_only
+        super(*args)
+      end
+
       def read_multi(*names)
         options = names.extract_options!
         options = merged_options(options)

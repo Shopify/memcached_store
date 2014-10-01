@@ -4,6 +4,9 @@ class TestMemcachedStore < ActiveSupport::TestCase
   setup do
     @cache = ActiveSupport::Cache.lookup_store(:memcached_store, expires_in: 60, support_cas: true)
     @cache.clear
+
+    # Enable ActiveSupport notifications. Can be disabled in Rails 5.
+    Thread.current[:instrument_cache_store] = true
   end
 
   def test_write_not_found
@@ -448,7 +451,152 @@ class TestMemcachedStore < ActiveSupport::TestCase
     assert called_block, "CAS with read only should have called the inner block with an assertion"
   end
 
+  def test_write_with_read_only_should_not_send_activesupport_notification
+    assert_notifications(/cache/, 0) do
+      with_read_only(@cache) do
+        assert @cache.write("walrus", "bestest")
+      end
+    end
+  end
+
+  def test_delete_with_read_only_should_not_send_activesupport_notification
+    assert_notifications(/cache/, 0) do
+      with_read_only(@cache) do
+        assert @cache.delete("walrus")
+      end
+    end
+  end
+
+  def test_fetch_with_expires_in_with_read_only_should_not_send_activesupport_notification
+    expires_in = 10
+    @cache.fetch("walrus", expires_in: expires_in) { "yo" }
+
+    Timecop.travel(Time.now + expires_in + 1) do
+      assert_notifications(/cache_write/, 0) do
+        with_read_only(@cache) do
+          @cache.fetch("walrus") { "no" }
+        end
+      end
+    end
+  end
+
+  def test_fetch_with_expired_entry_with_read_only_should_return_nil_and_not_delete_from_cache
+    expires_in = 10
+    @cache.fetch("walrus", expires_in: expires_in) { "yo" }
+
+    Timecop.travel(Time.now + expires_in + 1) do
+      with_read_only(@cache) do
+        value = @cache.fetch("walrus", expires_in: expires_in) { "no" }
+
+        assert_equal "no", value
+        refute @cache.fetch("walrus"), "Client should return nil for expired key"
+        assert_equal "yo", @cache.instance_variable_get(:@data).get("walrus").value
+      end
+    end
+  end
+
+  def test_fetch_with_expired_entry_and_race_condition_ttl_with_read_only_should_return_nil_and_not_delete_from_cache
+    expires_in = 10
+    race_condition_ttl = 10
+    @cache.fetch("walrus", expires_in: expires_in) { "yo" }
+
+    Timecop.travel(Time.now + expires_in + 1) do
+      with_read_only(@cache) do
+        value = @cache.fetch("walrus", expires_in: expires_in, race_condition_ttl: race_condition_ttl) { "no" }
+
+        assert_equal "no", value
+        assert_equal "no", @cache.fetch("walrus") { "no" }
+        refute @cache.fetch("walrus")
+
+        assert_equal "yo", @cache.instance_variable_get(:@data).get("walrus").value
+      end
+    end
+  end
+
+  def test_read_with_expired_with_read_only_entry_should_return_nil_and_not_delete_from_cache
+    expires_in = 10
+    @cache.fetch("walrus", expires_in: expires_in) { "yo" }
+
+    Timecop.travel(Time.now + expires_in + 1) do
+      with_read_only(@cache) do
+        refute @cache.read("walrus")
+
+        assert_equal "yo", @cache.instance_variable_get(:@data).get("walrus").value
+      end
+    end
+  end
+
+  def test_read_multi_with_expired_entry_should_return_nil_and_not_delete_from_cache
+    expires_in = 10
+    @cache.fetch("walrus", expires_in: expires_in) { "yo" }
+    @cache.fetch("narwhal", expires_in: expires_in) { "yiir" }
+
+    Timecop.travel(Time.now + expires_in + 1) do
+      with_read_only(@cache) do
+        assert_predicate @cache.read_multi("walrus", "narwhal"), :empty?
+
+        assert_equal "yo", @cache.instance_variable_get(:@data).get("walrus").value
+        assert_equal "yiir", @cache.instance_variable_get(:@data).get("narwhal").value
+      end
+    end
+  end
+
+  def test_fetch_with_race_condition_ttl_with_read_only_should_not_send_activesupport_notification
+    expires_in = 10
+    race_condition_ttl = 10
+    @cache.fetch("walrus", expires_in: expires_in) { "yo" }
+
+    Timecop.travel(Time.now + expires_in + 1) do
+      assert_notifications(/cache_write/, 0) do
+        with_read_only(@cache) do
+          @cache.fetch("walrus", expires_in: expires_in, race_condition_ttl: race_condition_ttl) { "no" }
+        end
+      end
+    end
+  end
+
+  def test_cas_with_read_only_should_send_activesupport_notification
+    @cache.write("walrus", "yes")
+
+    with_read_only(@cache) do
+      assert_notifications(/cache_cas/, 1) do
+        assert(@cache.cas("walrus") { |value| "no" })
+      end
+    end
+
+    assert_equal "yes", @cache.fetch("walrus")
+  end
+
+  def test_cas_multi_with_read_only_should_send_activesupport_notification
+    @cache.write("walrus", "yes")
+    @cache.write("narwhal", "yes")
+
+    with_read_only(@cache) do
+      assert_notifications(/cache_cas/, 1) do
+        assert(@cache.cas_multi("walrus", "narwhal") { |*values|
+          { "walrus" => "no", "narwhal" => "no" }
+        })
+      end
+    end
+
+    assert_equal "yes", @cache.fetch("walrus")
+    assert_equal "yes", @cache.fetch("narwhal")
+  end
+
   private
+
+  def assert_notifications(pattern, num)
+    count = 0
+    subscriber = ActiveSupport::Notifications.subscribe(pattern) do |name, start, finish, id, payload|
+      count += 1
+    end
+
+    yield
+
+    assert_equal num, count, "Expected #{num} notifications for #{pattern}, but got #{count}"
+  ensure
+    ActiveSupport::Notifications.unsubscribe(subscriber)
+  end
 
   def with_read_only(client)
     previous, client.read_only = client.read_only, true
