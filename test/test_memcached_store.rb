@@ -593,8 +593,8 @@ class TestMemcachedStore < ActiveSupport::TestCase
 
     yield
 
-    assert_equal num, count
-
+    assert_equal num, count, "Expected #{num} notifications for #{pattern}, but got #{count}"
+  ensure
     ActiveSupport::Notifications.unsubscribe(subscriber)
   end
 
