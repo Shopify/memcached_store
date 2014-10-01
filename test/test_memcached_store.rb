@@ -480,7 +480,7 @@ class TestMemcachedStore < ActiveSupport::TestCase
     end
   end
 
-  def test_fetch_with_expired_entry_should_return_nil_and_not_delete_from_cache
+  def test_fetch_with_expired_entry_with_read_only_should_return_nil_and_not_delete_from_cache
     expires_in = 10
     @cache.fetch("walrus", expires_in: expires_in) { "yo" }
 
@@ -495,7 +495,7 @@ class TestMemcachedStore < ActiveSupport::TestCase
     end
   end
 
-  def test_fetch_with_expired_entry_and_race_condition_ttl_should_return_nil_and_not_delete_from_cache
+  def test_fetch_with_expired_entry_and_race_condition_ttl_with_read_only_should_return_nil_and_not_delete_from_cache
     expires_in = 10
     race_condition_ttl = 10
     @cache.fetch("walrus", expires_in: expires_in) { "yo" }
@@ -509,6 +509,34 @@ class TestMemcachedStore < ActiveSupport::TestCase
         refute @cache.fetch("walrus")
 
         assert_equal "yo", @cache.instance_variable_get(:@data).get("walrus").value
+      end
+    end
+  end
+
+  def test_read_with_expired_with_read_only_entry_should_return_nil_and_not_delete_from_cache
+    expires_in = 10
+    @cache.fetch("walrus", expires_in: expires_in) { "yo" }
+
+    Timecop.travel(Time.now + expires_in + 1) do
+      with_read_only(@cache) do
+        refute @cache.read("walrus")
+
+        assert_equal "yo", @cache.instance_variable_get(:@data).get("walrus").value
+      end
+    end
+  end
+
+  def test_read_multi_with_expired_entry_should_return_nil_and_not_delete_from_cache
+    expires_in = 10
+    @cache.fetch("walrus", expires_in: expires_in) { "yo" }
+    @cache.fetch("narwhal", expires_in: expires_in) { "yiir" }
+
+    Timecop.travel(Time.now + expires_in + 1) do
+      with_read_only(@cache) do
+        assert_predicate @cache.read_multi("walrus", "narwhal"), :empty?
+
+        assert_equal "yo", @cache.instance_variable_get(:@data).get("walrus").value
+        assert_equal "yiir", @cache.instance_variable_get(:@data).get("narwhal").value
       end
     end
   end
