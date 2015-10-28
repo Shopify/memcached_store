@@ -48,6 +48,11 @@ module ActiveSupport
         extend Strategy::LocalCache
       end
 
+      def logger
+        return @logger if @logger
+        @logger = ::Rails.logger if defined?(::Rails)
+      end
+
       def write(*args)
         return true if read_only
         super(*args)

@@ -1,4 +1,5 @@
 require 'test_helper'
+require 'logger'
 
 class TestMemcachedStore < ActiveSupport::TestCase
   setup do
@@ -581,6 +582,10 @@ class TestMemcachedStore < ActiveSupport::TestCase
 
     assert_equal "yes", @cache.fetch("walrus")
     assert_equal "yes", @cache.fetch("narwhal")
+  end
+
+  def test_logger_defaults_to_rails_logger
+    assert_equal Rails.logger, @cache.logger
   end
 
   private
