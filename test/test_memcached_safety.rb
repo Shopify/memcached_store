@@ -125,6 +125,11 @@ class TestMemcachedSafety < ActiveSupport::TestCase
       @cache.prepend("a-key", "other")
     end
   end
+
+  test "logger defaults to rails logger" do
+    assert_equal Rails.logger, @cache.logger
+  end
+
   private
 
   def expect_nonfatal(sym)

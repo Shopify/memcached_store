@@ -5,3 +5,17 @@ require 'timecop'
 require 'active_support/test_case'
 
 require 'memcached_store'
+
+class Rails
+  def self.logger
+    @logger ||= Logger.new("/dev/null")
+  end
+
+  def self.env
+    Struct.new("Env") do
+      def self.test?
+        true
+      end
+    end
+  end
+end

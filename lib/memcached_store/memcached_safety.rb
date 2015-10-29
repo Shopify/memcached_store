@@ -71,12 +71,16 @@ module MemcachedStore
       ENV
     end
 
+    def logger
+      return @logger if @logger
+      @logger = ::Rails.logger if defined?(::Rails)
+    end
 
     private
 
     def report_exception(exception)
       if defined?(::Rails)
-        Rails.logger.error "[#{self.class}] exception=#{exception}"
+        logger.error "[#{self.class}] exception=#{exception}"
       end
       nil # make sure return value is nil
     end
