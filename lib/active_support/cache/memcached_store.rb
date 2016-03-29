@@ -49,7 +49,7 @@ module ActiveSupport
       end
 
       def logger
-        return @logger if @logger
+        return @logger if defined?(@logger)
         @logger = ::Rails.logger if defined?(::Rails)
       end
 
