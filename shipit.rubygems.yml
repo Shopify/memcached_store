@@ -1,1 +1,4 @@
-# use default config
+dependencies:
+  bundler:
+    without:
+      - test
