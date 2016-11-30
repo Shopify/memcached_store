@@ -4,7 +4,7 @@ require 'rake/testtask'
 $LOAD_PATH.unshift File.expand_path("../lib", __FILE__)
 require "memcached_store/version"
 
-task :default => :test
+task default: :test
 
 desc 'run test suite with default parser'
 Rake::TestTask.new do |t|
@@ -14,7 +14,7 @@ Rake::TestTask.new do |t|
   t.verbose = true
 end
 
-task :tag => :build do
+task tag: :build do
   system "git commit -m'Released version #{MemcachedStore::VERSION}' --allow-empty"
   system "git tag -a v#{MemcachedStore::VERSION} -m 'Tagging #{MemcachedStore::VERSION}'"
   system "git push --tags"

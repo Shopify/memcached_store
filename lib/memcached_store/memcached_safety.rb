@@ -1,21 +1,19 @@
 module MemcachedStore
   class MemcachedSafety < Memcached::Rails
+    FATAL_EXCEPTIONS = [Memcached::ABadKeyWasProvidedOrCharactersOutOfRange,
+                        Memcached::AKeyLengthOfZeroWasProvided,
+                        Memcached::ConnectionBindFailure,
+                        Memcached::ConnectionDataDoesNotExist,
+                        Memcached::ConnectionFailure,
+                        Memcached::ConnectionSocketCreateFailure,
+                        Memcached::CouldNotOpenUnixSocket,
+                        Memcached::NoServersDefined,
+                        Memcached::TheHostTransportProtocolDoesNotMatchThatOfTheClient]
 
-    FATAL_EXCEPTIONS = [ Memcached::ABadKeyWasProvidedOrCharactersOutOfRange,
-      Memcached::AKeyLengthOfZeroWasProvided,
-      Memcached::ConnectionBindFailure,
-      Memcached::ConnectionDataDoesNotExist,
-      Memcached::ConnectionFailure,
-      Memcached::ConnectionSocketCreateFailure,
-      Memcached::CouldNotOpenUnixSocket,
-      Memcached::NoServersDefined,
-      Memcached::TheHostTransportProtocolDoesNotMatchThatOfTheClient
-    ]
-
-    if defined?(::Rails) && ::Rails.env.test?
-      NONFATAL_EXCEPTIONS = []
+    NONFATAL_EXCEPTIONS = if defined?(::Rails) && ::Rails.env.test?
+      []
     else
-      NONFATAL_EXCEPTIONS = Memcached::EXCEPTIONS - FATAL_EXCEPTIONS
+      Memcached::EXCEPTIONS - FATAL_EXCEPTIONS
     end
 
     SIZE_LIMIT = 2 * 1024 * 1024
@@ -23,7 +21,7 @@ module MemcachedStore
     def exist_with_rescue?(*args)
       exist_without_rescue?(*args)
     rescue *NONFATAL_EXCEPTIONS
-      report_exception($!)
+      report_exception($ERROR_INFO)
     end
     alias_method :exist_without_rescue?, :exist?
     alias_method :exist?, :exist_with_rescue?
@@ -31,7 +29,7 @@ module MemcachedStore
     def cas_with_rescue(*args)
       cas_without_rescue(*args)
     rescue *NONFATAL_EXCEPTIONS
-      report_exception($!)
+      report_exception($ERROR_INFO)
       false
     end
     alias_method_chain :cas, :rescue
@@ -39,7 +37,7 @@ module MemcachedStore
     def get_multi_with_rescue(*args)
       get_multi_without_rescue(*args)
     rescue *NONFATAL_EXCEPTIONS
-      report_exception($!)
+      report_exception($ERROR_INFO)
       {}
     end
     alias_method_chain :get_multi, :rescue
@@ -47,7 +45,7 @@ module MemcachedStore
     def set_with_rescue(*args)
       set_without_rescue(*args)
     rescue *NONFATAL_EXCEPTIONS
-      report_exception($!)
+      report_exception($ERROR_INFO)
       false
     end
     alias_method_chain :set, :rescue
@@ -55,12 +53,12 @@ module MemcachedStore
     def add_with_rescue(*args)
       add_without_rescue(*args)
     rescue *NONFATAL_EXCEPTIONS
-      report_exception($!)
-      @string_return_types? "NOT STORED\r\n" : true
+      report_exception($ERROR_INFO)
+      @string_return_types ? "NOT STORED\r\n" : true
     end
     alias_method_chain :add, :rescue
 
-    %w{get delete incr decr append prepend}.each do |meth|
+    %w(get delete incr decr append prepend).each do |meth|
       class_eval <<-ENV
         def #{meth}_with_rescue(*args)
           #{meth}_without_rescue(*args)

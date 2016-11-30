@@ -3,7 +3,7 @@ require 'test_helper'
 class TestMemcachedSafety < ActiveSupport::TestCase
   setup do
     @cache = MemcachedStore::MemcachedSafety.new(["localhost:21211"])
-    @entry = ActiveSupport::Cache::Entry.new({:omg => "ponies"})
+    @entry = ActiveSupport::Cache::Entry.new(omg: "ponies")
   end
 
   test "exist? absorbs non-fatal exceptions" do

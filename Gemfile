@@ -6,7 +6,7 @@ gemspec
 version = ENV["AS_VERSION"] || "4.0.5"
 as_version = case version
 when "master"
-  {:github => "rails/rails"}
+  { github: "rails/rails" }
 else
   "~> #{version}"
 end

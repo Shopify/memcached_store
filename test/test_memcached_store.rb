@@ -45,8 +45,8 @@ class TestMemcachedStore < ActiveSupport::TestCase
   def test_fetch_with_forced_cache_miss
     @cache.write('foo', 'bar')
     @cache.expects(:read).never
-    @cache.expects(:write).with('foo', 'bar', @cache.options.merge(:force => true))
-    @cache.fetch('foo', :force => true) { 'bar' }
+    @cache.expects(:write).with('foo', 'bar', @cache.options.merge(force: true))
+    @cache.fetch('foo', force: true) { 'bar' }
   end
 
   def test_fetch_with_cached_nil
@@ -57,17 +57,20 @@ class TestMemcachedStore < ActiveSupport::TestCase
 
   def test_cas
     @cache.write('foo', nil)
-    assert @cache.cas('foo') {|value| assert_nil value; 'bar' }
+    assert(@cache.cas('foo') do |value|
+      assert_nil value
+      'bar'
+    end)
     assert_equal 'bar', @cache.read('foo')
   end
 
   def test_cas_with_cache_miss
-    refute @cache.cas('not_exist') {|value| flunk }
+    refute @cache.cas('not_exist') { |_value| flunk }
   end
 
   def test_cas_with_conflict
     @cache.write('foo', 'bar')
-    refute @cache.cas('foo') {|value|
+    refute @cache.cas('foo') { |_value|
       @cache.write('foo', 'baz')
       'biz'
     }
@@ -75,55 +78,68 @@ class TestMemcachedStore < ActiveSupport::TestCase
   end
 
   def test_cas_multi_with_empty_set
-    refute @cache.cas_multi() {|hash| flunk }
+    refute @cache.cas_multi { |_hash| flunk }
   end
 
   def test_cas_multi
     @cache.write('foo', 'bar')
     @cache.write('fud', 'biz')
-    assert @cache.cas_multi('foo', 'fud') {|hash| assert_equal({"foo" => "bar", "fud" => "biz"}, hash); {"foo" => "baz", "fud" => "buz"} }
-    assert_equal({"foo" => "baz", "fud" => "buz"}, @cache.read_multi('foo', 'fud'))
+    assert(@cache.cas_multi('foo', 'fud') do |hash|
+      assert_equal({ "foo" => "bar", "fud" => "biz" }, hash)
+      { "foo" => "baz", "fud" => "buz" }
+    end)
+    assert_equal({ "foo" => "baz", "fud" => "buz" }, @cache.read_multi('foo', 'fud'))
   end
 
   def test_cas_multi_with_altered_key
     @cache.write('foo', 'baz')
-    assert @cache.cas_multi('foo') {|hash| {'fu' => 'baz'}}
+    assert @cache.cas_multi('foo') { |_hash| { 'fu' => 'baz' } }
     assert_nil @cache.read('fu')
     assert_equal 'baz', @cache.read('foo')
   end
 
   def test_cas_multi_with_cache_miss
-    assert @cache.cas_multi('not_exist') {|hash| assert hash.empty?; {} }
+    assert(@cache.cas_multi('not_exist') do |hash|
+      assert hash.empty?
+      {}
+    end)
   end
 
   def test_cas_multi_with_partial_miss
     @cache.write('foo', 'baz')
-    assert @cache.cas_multi('foo', 'bar') {|hash| assert_equal({"foo" => "baz"}, hash); {} }
+    assert(@cache.cas_multi('foo', 'bar') do |hash|
+      assert_equal({ "foo" => "baz" }, hash)
+      {}
+    end)
     assert_equal 'baz', @cache.read('foo')
   end
 
   def test_cas_multi_with_partial_update
     @cache.write('foo', 'bar')
     @cache.write('fud', 'biz')
-    assert @cache.cas_multi('foo', 'fud') {|hash| assert_equal({"foo" => "bar", "fud" => "biz"}, hash); {"foo" => "baz"} }
-    assert_equal({"foo" => "baz", "fud" => "biz"}, @cache.read_multi('foo', 'fud'))
+    assert(@cache.cas_multi('foo', 'fud') do |hash|
+      assert_equal({ "foo" => "bar", "fud" => "biz" }, hash)
+
+      { "foo" => "baz" }
+    end)
+    assert_equal({ "foo" => "baz", "fud" => "biz" }, @cache.read_multi('foo', 'fud'))
   end
 
   def test_cas_multi_with_partial_conflict
     @cache.write('foo', 'bar')
     @cache.write('fud', 'biz')
     result = @cache.cas_multi('foo', 'fud') do |hash|
-      assert_equal({"foo" => "bar", "fud" => "biz"}, hash)
+      assert_equal({ "foo" => "bar", "fud" => "biz" }, hash)
       @cache.write('foo', 'bad')
-      {"foo" => "baz", "fud" => "buz"}
+      { "foo" => "baz", "fud" => "buz" }
     end
     assert result
-    assert_equal({"foo" => "bad", "fud" => "buz"}, @cache.read_multi('foo', 'fud'))
+    assert_equal({ "foo" => "bad", "fud" => "buz" }, @cache.read_multi('foo', 'fud'))
   end
 
   def test_should_read_and_write_hash
-    assert @cache.write('foo', {:a => "b"})
-    assert_equal({:a => "b"}, @cache.read('foo'))
+    assert @cache.write('foo', a: "b")
+    assert_equal({ a: "b" }, @cache.read('foo'))
   end
 
   def test_should_read_and_write_integer
@@ -145,16 +161,16 @@ class TestMemcachedStore < ActiveSupport::TestCase
     @cache.write('foo', 'bar')
     @cache.write('fu', 'baz')
     @cache.write('fud', 'biz')
-    assert_equal({"foo" => "bar", "fu" => "baz"}, @cache.read_multi('foo', 'fu'))
+    assert_equal({ "foo" => "bar", "fu" => "baz" }, @cache.read_multi('foo', 'fu'))
   end
 
   def test_read_multi_with_expires
     time = Time.now
-    @cache.write('foo', 'bar', :expires_in => 10)
+    @cache.write('foo', 'bar', expires_in: 10)
     @cache.write('fu', 'baz')
     @cache.write('fud', 'biz')
     Time.stubs(:now).returns(time + 11)
-    assert_equal({"fu" => "baz"}, @cache.read_multi('foo', 'fu'))
+    assert_equal({ "fu" => "baz" }, @cache.read_multi('foo', 'fu'))
   end
 
   def test_read_multi_not_found
@@ -163,17 +179,17 @@ class TestMemcachedStore < ActiveSupport::TestCase
   end
 
   def test_read_and_write_compressed_small_data
-    @cache.write('foo', 'bar', :compress => true)
+    @cache.write('foo', 'bar', compress: true)
     assert_equal 'bar', @cache.read('foo')
   end
 
   def test_read_and_write_compressed_large_data
-    @cache.write('foo', 'bar', :compress => true, :compress_threshold => 2)
+    @cache.write('foo', 'bar', compress: true, compress_threshold: 2)
     assert_equal 'bar', @cache.read('foo')
   end
 
   def test_read_and_write_compressed_nil
-    @cache.write('foo', nil, :compress => true)
+    @cache.write('foo', nil, compress: true)
     assert_nil @cache.read('foo')
   end
 
@@ -201,7 +217,7 @@ class TestMemcachedStore < ActiveSupport::TestCase
   end
 
   def test_hash_as_cache_key
-    @cache.write({:foo => 1, :fu => 2}, "bar")
+    @cache.write({ foo: 1, fu: 2 }, "bar")
     assert_equal "bar", @cache.read("foo=1/fu=2")
   end
 
@@ -252,9 +268,9 @@ class TestMemcachedStore < ActiveSupport::TestCase
 
   def test_race_condition_protection
     time = Time.now
-    @cache.write('foo', 'bar', :expires_in => 60)
+    @cache.write('foo', 'bar', expires_in: 60)
     Time.stubs(:now).returns(time + 61)
-    result = @cache.fetch('foo', :race_condition_ttl => 10) do
+    result = @cache.fetch('foo', race_condition_ttl: 10) do
       assert_equal 'bar', @cache.read('foo')
       "baz"
     end
@@ -263,9 +279,9 @@ class TestMemcachedStore < ActiveSupport::TestCase
 
   def test_race_condition_protection_is_limited
     time = Time.now
-    @cache.write('foo', 'bar', :expires_in => 60)
+    @cache.write('foo', 'bar', expires_in: 60)
     Time.stubs(:now).returns(time + 71)
-    result = @cache.fetch('foo', :race_condition_ttl => 10) do
+    result = @cache.fetch('foo', race_condition_ttl: 10) do
       assert_equal nil, @cache.read('foo')
       "baz"
     end
@@ -274,14 +290,13 @@ class TestMemcachedStore < ActiveSupport::TestCase
 
   def test_race_condition_protection_is_safe
     time = Time.now
-    @cache.write('foo', 'bar', :expires_in => 60)
+    @cache.write('foo', 'bar', expires_in: 60)
     Time.stubs(:now).returns(time + 61)
-    begin
-      @cache.fetch('foo', :race_condition_ttl => 10) do
+    assert_raises(ArgumentError) do
+      @cache.fetch('foo', race_condition_ttl: 10) do
         assert_equal 'bar', @cache.read('foo')
-        raise ArgumentError.new
+        raise ArgumentError
       end
-    rescue ArgumentError
     end
     assert_equal "bar", @cache.read('foo')
     Time.stubs(:now).returns(time + 91)
@@ -290,28 +305,28 @@ class TestMemcachedStore < ActiveSupport::TestCase
 
   def test_crazy_key_characters
     crazy_key = "#/:*(<+=> )&$%@?;'\"\'`~-"
-    assert @cache.write(crazy_key, "1", :raw => true)
+    assert @cache.write(crazy_key, "1", raw: true)
     assert_equal "1", @cache.read(crazy_key)
     assert_equal "1", @cache.fetch(crazy_key)
     assert @cache.delete(crazy_key)
-    assert_equal "2", @cache.fetch(crazy_key, :raw => true) { "2" }
+    assert_equal "2", @cache.fetch(crazy_key, raw: true) { "2" }
     assert_equal 3, @cache.increment(crazy_key)
     assert_equal 2, @cache.decrement(crazy_key)
   end
 
   def test_really_long_keys
     key = ""
-    900.times{key << "x"}
+    900.times { key << "x" }
     assert @cache.write(key, "bar")
     assert_equal "bar", @cache.read(key)
     assert_equal "bar", @cache.fetch(key)
     assert_nil @cache.read("#{key}x")
-    assert_equal({key => "bar"}, @cache.read_multi(key))
+    assert_equal({ key => "bar" }, @cache.read_multi(key))
     assert @cache.delete(key)
   end
 
   def test_increment
-    @cache.write('foo', 1, :raw => true)
+    @cache.write('foo', 1, raw: true)
     assert_equal 1, @cache.read('foo').to_i
     assert_equal 2, @cache.increment('foo')
     assert_equal 2, @cache.read('foo').to_i
@@ -326,7 +341,7 @@ class TestMemcachedStore < ActiveSupport::TestCase
   end
 
   def test_decrement
-    @cache.write('foo', 3, :raw => true)
+    @cache.write('foo', 3, raw: true)
     assert_equal 3, @cache.read('foo').to_i
     assert_equal 2, @cache.decrement('foo')
     assert_equal 2, @cache.read('foo').to_i
@@ -342,35 +357,35 @@ class TestMemcachedStore < ActiveSupport::TestCase
 
   def test_common_utf8_values
     key = "\xC3\xBCmlaut".force_encoding(Encoding::UTF_8)
-    assert @cache.write(key, "1", :raw => true)
+    assert @cache.write(key, "1", raw: true)
     assert_equal "1", @cache.read(key)
     assert_equal "1", @cache.fetch(key)
     assert @cache.delete(key)
-    assert_equal "2", @cache.fetch(key, :raw => true) { "2" }
+    assert_equal "2", @cache.fetch(key, raw: true) { "2" }
     assert_equal 3, @cache.increment(key)
     assert_equal 2, @cache.decrement(key)
   end
 
   def test_retains_encoding
     key = "\xC3\xBCmlaut".force_encoding(Encoding::UTF_8)
-    assert @cache.write(key, "1", :raw => true)
+    assert @cache.write(key, "1", raw: true)
     assert_equal Encoding::UTF_8, key.encoding
   end
 
   def test_initialize_accepts_a_list_of_servers_in_options
-    options = {servers: ["localhost:21211"]}
+    options = { servers: ["localhost:21211"] }
     cache = ActiveSupport::Cache.lookup_store(:memcached_store, options)
     assert_equal 21211, cache.instance_variable_get(:@data).servers.first.port
   end
 
   def test_multiple_servers
-    options = {servers: ["localhost:21211", "localhost:11211"]}
+    options = { servers: ["localhost:21211", "localhost:11211"] }
     cache = ActiveSupport::Cache.lookup_store(:memcached_store, options)
     assert_equal [21211, 11211], cache.instance_variable_get(:@data).servers.map(&:port)
   end
 
   def test_namespace_without_servers
-    options = {namespace: 'foo:'}
+    options = { namespace: 'foo:' }
     cache = ActiveSupport::Cache.lookup_store(:memcached_store, options)
     client = cache.instance_variable_get(:@data)
     assert_equal [11211], client.servers.map(&:port)
@@ -408,11 +423,11 @@ class TestMemcachedStore < ActiveSupport::TestCase
     @cache.write('walrus', 'slimy')
 
     with_read_only(@cache) do
-      assert(@cache.cas('walrus') { |value|
+      assert(@cache.cas('walrus') do |value|
         assert_equal 'slimy', value
         called_block = true
         'full'
-      })
+      end)
     end
 
     assert_equal 'slimy', @cache.read('walrus')
@@ -426,10 +441,10 @@ class TestMemcachedStore < ActiveSupport::TestCase
     @cache.write('narwhal', 'horn')
 
     with_read_only(@cache) do
-      assert(@cache.cas_multi('walrus', 'narwhal') {
+      assert(@cache.cas_multi('walrus', 'narwhal') do
         called_block = true
         { "walrus" => "not cool", "narwhal" => "not with horns" }
-      })
+      end)
     end
 
     assert_equal 'cool', @cache.read('walrus')
@@ -546,7 +561,7 @@ class TestMemcachedStore < ActiveSupport::TestCase
 
     with_read_only(@cache) do
       assert_notifications(/cache_cas/, 1) do
-        assert(@cache.cas("walrus") { |value| "no" })
+        assert(@cache.cas("walrus") { |_value| "no" })
       end
     end
 
@@ -559,9 +574,9 @@ class TestMemcachedStore < ActiveSupport::TestCase
 
     with_read_only(@cache) do
       assert_notifications(/cache_cas/, 1) do
-        assert(@cache.cas_multi("walrus", "narwhal") { |*values|
+        assert(@cache.cas_multi("walrus", "narwhal") do |*_values|
           { "walrus" => "no", "narwhal" => "no" }
-        })
+        end)
       end
     end
 
@@ -577,7 +592,7 @@ class TestMemcachedStore < ActiveSupport::TestCase
 
   def assert_notifications(pattern, num)
     count = 0
-    subscriber = ActiveSupport::Notifications.subscribe(pattern) do |name, start, finish, id, payload|
+    subscriber = ActiveSupport::Notifications.subscribe(pattern) do |_name, _start, _finish, _id, _payload|
       count += 1
     end
 
@@ -589,7 +604,8 @@ class TestMemcachedStore < ActiveSupport::TestCase
   end
 
   def with_read_only(client)
-    previous, client.read_only = client.read_only, true
+    previous = client.read_only
+    client.read_only = true
     yield
   ensure
     client.read_only = previous

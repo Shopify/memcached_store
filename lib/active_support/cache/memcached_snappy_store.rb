@@ -12,12 +12,12 @@ module ActiveSupport
     class MemcachedSnappyStore < MemcachedStore
       class UnsupportedOperation < StandardError; end
 
-      def increment(*args)
-        raise UnsupportedOperation.new("increment is not supported by: #{self.class.name}")
+      def increment(*)
+        raise UnsupportedOperation, "increment is not supported by: #{self.class.name}"
       end
 
-      def decrement(*args)
-        raise UnsupportedOperation.new("decrement is not supported by: #{self.class.name}")
+      def decrement(*)
+        raise UnsupportedOperation, "decrement is not supported by: #{self.class.name}"
       end
 
       # IdentityCache has its own handling for read only.
@@ -26,6 +26,7 @@ module ActiveSupport
       end
 
       private
+
       def serialize_entry(entry, options)
         value = options[:raw] ? entry.value.to_s : Marshal.dump(entry)
         [Snappy.deflate(value), true]
@@ -34,12 +35,10 @@ module ActiveSupport
       def deserialize_entry(compressed_value)
         if compressed_value
           super(Snappy.inflate(compressed_value))
-        else
-          nil
         end
       end
 
-      def cas_raw?(options)
+      def cas_raw?(_options)
         true
       end
     end
