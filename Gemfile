@@ -11,5 +11,11 @@ else
   "~> #{version}"
 end
 
-gem 'minitest', '~> 4.0' if version == "3.2.18"
 gem "activesupport", as_version
+
+group :test do
+  gem "minitest", '~> 4.0' if version == "3.2.18"
+  gem "mocha"
+  gem "timecop"
+  gem "snappy"
+end
