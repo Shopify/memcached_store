@@ -8,7 +8,7 @@ ActiveSupport memcached store. This wraps the memcached gem into a ActiveSupport
 
 ### MemcachedSnappyStore
 
-ActiveSupport cache store that adds snappy compression at the cost of making the ```incr, decr``` operations unavailable.
+ActiveSupport cache store that adds snappy compression at the cost of making the `incr, decr` operations unavailable.
 
 ## Installation
 
@@ -40,7 +40,7 @@ config.cache_store = :memcached_store,
 
 # for snappy store
 config.cache_store = :memcached_snappy_store,
-  Memcached::Rails.new(:servers => ['memcached1.foo.com', 'memcached2.foo.com'])
+  Memcached::Rails.new(servers: ['memcached1.foo.com', 'memcached2.foo.com'])
 ```
 
 ## Code status
