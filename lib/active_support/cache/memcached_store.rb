@@ -152,11 +152,15 @@ module ActiveSupport
       end
 
       def clear(options = nil)
-        instrument(:clear, options) { @data.flush_all }
+        ActiveSupport::Notifications.instrument("cache_clear.active_support", options || {}) do
+          @data.flush_all
+        end
       end
 
       def stats
-        instrument(:stats) { @data.stats }
+        ActiveSupport::Notifications.instrument("cache_stats.active_support") do
+          @data.stats
+        end
       end
 
       def exist?(*)
