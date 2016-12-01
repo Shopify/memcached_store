@@ -1,4 +1,4 @@
 # encoding: utf-8
 module MemcachedStore
-  VERSION = "0.12.8"
+  VERSION = "1.0.0"
 end
