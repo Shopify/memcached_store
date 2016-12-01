@@ -65,7 +65,7 @@ module ActiveSupport
       def read_multi(*names)
         options = names.extract_options!
         options = merged_options(options)
-        keys_to_names = Hash[names.map { |name| [escape_key(namespaced_key(name, options)), name] }]
+        keys_to_names = Hash[names.map { |name| [normalize_key(name, options), name] }]
         values = {}
 
         instrument(:read_multi, names, options) do
@@ -84,7 +84,7 @@ module ActiveSupport
 
       def cas(name, options = nil)
         options = merged_options(options)
-        key = namespaced_key(name, options)
+        key = normalize_key(name, options)
 
         instrument(:cas, name, options) do
           @data.cas(key, expiration(options), cas_raw?(options)) do |raw_value|
@@ -102,7 +102,7 @@ module ActiveSupport
       def cas_multi(*names)
         options = names.extract_options!
         options = merged_options(options)
-        keys_to_names = Hash[names.map { |name| [escape_key(namespaced_key(name, options)), name] }]
+        keys_to_names = Hash[names.map { |name| [normalize_key(name, options), name] }]
 
         instrument(:cas_multi, names, options) do
           @data.cas(keys_to_names.keys, expiration(options), cas_raw?(options)) do |raw_values|
@@ -118,7 +118,7 @@ module ActiveSupport
             break true if read_only
 
             serialized_values = values.map do |name, value|
-              [escape_key(namespaced_key(name, options)), serialize_entry(Entry.new(value, options), options).first]
+              [normalize_key(name, options), serialize_entry(Entry.new(value, options), options).first]
             end
 
             Hash[serialized_values]
@@ -132,7 +132,7 @@ module ActiveSupport
       def increment(name, amount = 1, options = nil) # :nodoc:
         options = merged_options(options)
         instrument(:increment, name, amount: amount) do
-          @data.incr(escape_key(namespaced_key(name, options)), amount)
+          @data.incr(normalize_key(name, options), amount)
         end
       rescue *NONFATAL_EXCEPTIONS => e
         @data.log_exception(e)
@@ -142,7 +142,7 @@ module ActiveSupport
       def decrement(name, amount = 1, options = nil) # :nodoc:
         options = merged_options(options)
         instrument(:decrement, name, amount: amount) do
-          @data.decr(escape_key(namespaced_key(name, options)), amount)
+          @data.decr(normalize_key(name, options), amount)
         end
       rescue *NONFATAL_EXCEPTIONS => e
         @data.log_exception(e)
@@ -199,12 +199,30 @@ module ActiveSupport
 
       private
 
-      def escape_key(key)
-        key = key.to_s.dup
-        key = key.force_encoding(Encoding::ASCII_8BIT)
-        key = key.gsub(ESCAPE_KEY_CHARS) { |match| "%#{match.getbyte(0).to_s(16).upcase}" }
-        key = "#{key[0, 213]}:md5:#{Digest::MD5.hexdigest(key)}" if key.size > 250
-        key
+      if ActiveSupport::VERSION::MAJOR < 5
+        def normalize_key(key, options)
+          escape_key(namespaced_key(key, options))
+        end
+
+        def escape_key(key)
+          key = key.to_s.dup
+          key = key.force_encoding(Encoding::ASCII_8BIT)
+          key = key.gsub(ESCAPE_KEY_CHARS) { |match| "%#{match.getbyte(0).to_s(16).upcase}" }
+          key = "#{key[0, 213]}:md5:#{Digest::MD5.hexdigest(key)}" if key.size > 250
+          key
+        end
+      else
+        def normalize_key(key, options)
+          key = super.dup
+          key = key.force_encoding(Encoding::ASCII_8BIT)
+          key = key.gsub(ESCAPE_KEY_CHARS) { |match| "%#{match.getbyte(0).to_s(16).upcase}" }
+          key = "#{key[0, 213]}:md5:#{Digest::MD5.hexdigest(key)}" if key.size > 250
+          key
+        end
+
+        def escape_key(key)
+          key
+        end
       end
 
       def deserialize_entry(raw_value)
