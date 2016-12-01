@@ -43,6 +43,10 @@ config.cache_store = :memcached_snappy_store,
   Memcached::Rails.new(servers: ['memcached1.foo.com', 'memcached2.foo.com'])
 ```
 
+## Benchmarks
+
+For benchmarks please refer to https://github.com/basecamp/memcached_bench.
+
 ## Code status
 
 [![Build Status](https://travis-ci.org/Shopify/memcached_store.svg?branch=master)](https://travis-ci.org/Shopify/memcached_store)
