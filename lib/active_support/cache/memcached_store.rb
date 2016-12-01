@@ -52,14 +52,14 @@ module ActiveSupport
         @logger = ::Rails.logger if defined?(::Rails)
       end
 
-      def write(*args)
+      def write(*)
         return true if read_only
-        super(*args)
+        super
       end
 
-      def delete(*args)
+      def delete(*)
         return true if read_only
-        super(*args)
+        super
       end
 
       def read_multi(*names)
@@ -157,7 +157,7 @@ module ActiveSupport
         instrument(:stats) { @data.stats }
       end
 
-      def exist?(*args)
+      def exist?(*)
         !!super
       end
 
