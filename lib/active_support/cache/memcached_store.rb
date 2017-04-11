@@ -64,6 +64,8 @@ module ActiveSupport
 
       def read_multi(*names)
         options = names.extract_options!
+        return {} if names.empty?
+
         options = merged_options(options)
         keys_to_names = Hash[names.map { |name| [normalize_key(name, options), name] }]
         values = {}

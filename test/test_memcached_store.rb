@@ -178,6 +178,10 @@ class TestMemcachedStore < ActiveSupport::TestCase
     assert_equal({}, @cache.read_multi('foe', 'fue'))
   end
 
+  def test_read_multi_with_empty_set
+    assert_equal({}, @cache.read_multi)
+  end
+
   def test_read_and_write_compressed_small_data
     @cache.write('foo', 'bar', compress: true)
     assert_equal 'bar', @cache.read('foo')
