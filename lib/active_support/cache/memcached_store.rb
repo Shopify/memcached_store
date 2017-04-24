@@ -11,22 +11,6 @@ module ActiveSupport
     # MemcachedStore implements the Strategy::LocalCache strategy which implements
     # an in-memory cache inside of a block.
     class MemcachedStore < Store
-      FATAL_EXCEPTIONS = [Memcached::ABadKeyWasProvidedOrCharactersOutOfRange,
-                          Memcached::AKeyLengthOfZeroWasProvided,
-                          Memcached::ConnectionBindFailure,
-                          Memcached::ConnectionDataDoesNotExist,
-                          Memcached::ConnectionFailure,
-                          Memcached::ConnectionSocketCreateFailure,
-                          Memcached::CouldNotOpenUnixSocket,
-                          Memcached::NoServersDefined,
-                          Memcached::TheHostTransportProtocolDoesNotMatchThatOfTheClient]
-
-      NONFATAL_EXCEPTIONS = if defined?(::Rails) && ::Rails.env.test?
-        []
-      else
-        Memcached::EXCEPTIONS - FATAL_EXCEPTIONS
-      end
-
       ESCAPE_KEY_CHARS = /[\x00-\x20%\x7F-\xFF]/n
 
       attr_accessor :read_only
@@ -40,8 +24,9 @@ module ActiveSupport
           @data = addresses.first
         else
           mem_cache_options = options.dup
+          servers = mem_cache_options.delete(:servers)
           UNIVERSAL_OPTIONS.each { |name| mem_cache_options.delete(name) }
-          @data = Memcached::Rails.new(*(addresses + [mem_cache_options]))
+          @data = Memcached.new([*addresses, *servers], mem_cache_options)
         end
 
         extend Strategy::LocalCache
@@ -71,7 +56,7 @@ module ActiveSupport
         values = {}
 
         instrument(:read_multi, names, options) do
-          if raw_values = @data.get_multi(keys_to_names.keys, raw: true)
+          if raw_values = @data.get(keys_to_names.keys, false)
             raw_values.each do |key, value|
               entry = deserialize_entry(value)
               values[keys_to_names[key]] = entry.value unless entry.expired?
@@ -79,8 +64,10 @@ module ActiveSupport
           end
         end
         values
-      rescue *NONFATAL_EXCEPTIONS => e
-        @data.log_exception(e)
+      rescue Memcached::NotFound
+        {}
+      rescue Memcached::Error => e
+        log_exception(e)
         {}
       end
 
@@ -89,15 +76,18 @@ module ActiveSupport
         key = normalize_key(name, options)
 
         instrument(:cas, name, options) do
-          @data.cas(key, expiration(options), cas_raw?(options)) do |raw_value|
+          @data.cas(key, expiration(options), !cas_raw?(options)) do |raw_value|
             entry = deserialize_entry(raw_value)
             value = yield entry.value
             break true if read_only
             serialize_entry(Entry.new(value, options), options).first
           end
         end
-      rescue *NONFATAL_EXCEPTIONS => e
-        @data.log_exception(e)
+        true
+      rescue Memcached::NotFound, Memcached::ConnectionDataExists
+        false
+      rescue Memcached::Error => e
+        log_exception(e)
         false
       end
 
@@ -109,7 +99,7 @@ module ActiveSupport
         keys_to_names = Hash[names.map { |name| [normalize_key(name, options), name] }]
 
         instrument(:cas_multi, names, options) do
-          @data.cas(keys_to_names.keys, expiration(options), cas_raw?(options)) do |raw_values|
+          @data.cas(keys_to_names.keys, expiration(options), !cas_raw?(options)) do |raw_values|
             values = {}
 
             raw_values.each do |key, raw_value|
@@ -127,9 +117,12 @@ module ActiveSupport
 
             Hash[serialized_values]
           end
+          true
         end
-      rescue *NONFATAL_EXCEPTIONS => e
-        @data.log_exception(e)
+      rescue Memcached::NotFound, Memcached::ConnectionDataExists
+        false
+      rescue Memcached::Error => e
+        log_exception(e)
         false
       end
 
@@ -138,8 +131,10 @@ module ActiveSupport
         instrument(:increment, name, amount: amount) do
           @data.incr(normalize_key(name, options), amount)
         end
-      rescue *NONFATAL_EXCEPTIONS => e
-        @data.log_exception(e)
+      rescue Memcached::NotFound
+        nil
+      rescue Memcached::Error => e
+        log_exception(e)
         nil
       end
 
@@ -148,14 +143,16 @@ module ActiveSupport
         instrument(:decrement, name, amount: amount) do
           @data.decr(normalize_key(name, options), amount)
         end
-      rescue *NONFATAL_EXCEPTIONS => e
-        @data.log_exception(e)
+      rescue Memcached::NotFound
+        nil
+      rescue Memcached::Error => e
+        log_exception(e)
         nil
       end
 
       def clear(options = nil)
         ActiveSupport::Notifications.instrument("cache_clear.active_support", options || {}) do
-          @data.flush_all
+          @data.flush
         end
       end
 
@@ -171,17 +168,19 @@ module ActiveSupport
 
       def reset #:nodoc:
         @data.reset
-      rescue *NONFATAL_EXCEPTIONS => e
-        @data.log_exception(e)
+      rescue Memcached::Error => e
+        log_exception(e)
         false
       end
 
       protected
 
       def read_entry(key, _options) # :nodoc:
-        deserialize_entry(@data.get(escape_key(key), true))
-      rescue *NONFATAL_EXCEPTIONS => e
-        @data.log_exception(e)
+        deserialize_entry(@data.get(escape_key(key), false))
+      rescue Memcached::NotFound
+        nil
+      rescue Memcached::Error => e
+        log_exception(e)
         nil
       end
 
@@ -190,9 +189,12 @@ module ActiveSupport
         method = options && options[:unless_exist] ? :add : :set
         expires_in = expiration(options)
         value, raw = serialize_entry(entry, options)
-        @data.send(method, escape_key(key), value, expires_in, raw)
-      rescue *NONFATAL_EXCEPTIONS => e
-        @data.log_exception(e)
+        @data.send(method, escape_key(key), value, expires_in, !raw)
+        true
+      rescue Memcached::NotFound
+        false
+      rescue Memcached::Error => e
+        log_exception(e)
         false
       end
 
@@ -200,8 +202,10 @@ module ActiveSupport
         return true if read_only
         @data.delete(escape_key(key))
         true
-      rescue *NONFATAL_EXCEPTIONS => e
-        @data.log_exception(e)
+      rescue Memcached::NotFound
+        true
+      rescue Memcached::Error => e
+        log_exception(e)
         false
       end
 
@@ -260,6 +264,10 @@ module ActiveSupport
           expires_in += 5.minutes
         end
         expires_in
+      end
+
+      def log_exception(e)
+        logger.warn("memcached error: #{e.class}: #{e.message}") if logger
       end
     end
   end
