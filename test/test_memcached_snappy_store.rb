@@ -36,7 +36,7 @@ class TestMemcachedSnappyStore < ActiveSupport::TestCase
 
       serialized_entry = Marshal.dump(entry)
       serialized_compressed_entry = Snappy.deflate(serialized_entry)
-      actual_cache_value = @cache.instance_variable_get(:@data).get(key, true)
+      actual_cache_value = @cache.instance_variable_get(:@data).get(key, false)
 
       assert_equal serialized_compressed_entry, actual_cache_value
     end
@@ -94,7 +94,7 @@ class TestMemcachedSnappyStore < ActiveSupport::TestCase
     key = 'key'
     @cache.write(key, 'value', raw: true)
 
-    actual_cache_value = @cache.instance_variable_get(:@data).get(key, true)
+    actual_cache_value = @cache.instance_variable_get(:@data).get(key, false)
     assert_equal 'value', Snappy.inflate(actual_cache_value)
   end
 
@@ -111,7 +111,7 @@ class TestMemcachedSnappyStore < ActiveSupport::TestCase
     assert result
     assert_equal update_value, @cache.read(key)
 
-    actual_cache_value = @cache.instance_variable_get(:@data).get(key, true)
+    actual_cache_value = @cache.instance_variable_get(:@data).get(key, false)
     serialized_entry = Snappy.inflate(actual_cache_value)
     entry = Marshal.load(serialized_entry)
     assert entry.is_a?(ActiveSupport::Cache::Entry)
@@ -126,7 +126,7 @@ class TestMemcachedSnappyStore < ActiveSupport::TestCase
       'new_value'
     end
     assert result
-    actual_cache_value = @cache.instance_variable_get(:@data).get(key, true)
+    actual_cache_value = @cache.instance_variable_get(:@data).get(key, false)
     assert_equal 'new_value', Snappy.inflate(actual_cache_value)
   end
 
@@ -145,7 +145,7 @@ class TestMemcachedSnappyStore < ActiveSupport::TestCase
     assert_equal Hash[keys.zip(values)].merge(update_hash), @cache.read_multi(*keys)
 
     update_hash.each do |key, value|
-      actual_cache_value = @cache.instance_variable_get(:@data).get(key, true)
+      actual_cache_value = @cache.instance_variable_get(:@data).get(key, false)
       serialized_entry = Snappy.inflate(actual_cache_value)
       entry = Marshal.load(serialized_entry)
       assert entry.is_a?(ActiveSupport::Cache::Entry)
@@ -165,7 +165,7 @@ class TestMemcachedSnappyStore < ActiveSupport::TestCase
       update_hash
     end
     assert result
-    actual_cache_value = @cache.instance_variable_get(:@data).get("two", true)
+    actual_cache_value = @cache.instance_variable_get(:@data).get("two", false)
     assert_equal update_hash["two"], Snappy.inflate(actual_cache_value)
   end
 end
