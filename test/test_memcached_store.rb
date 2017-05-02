@@ -594,25 +594,25 @@ class TestMemcachedStore < ActiveSupport::TestCase
     assert_equal Rails.logger, @cache.logger
   end
 
-  def test_constructor_set_swallow_exceptions
+  def test_constructor_sets_swallow_exceptions
     store = ActiveSupport::Cache::MemcachedStore.new([], swallow_exceptions: false)
     refute store.swallow_exceptions
   end
 
   def test_read_entry_does_raise_on_error
-    raises_when_not_swallowing_exceptions do
+    assert_raises_when_not_swallowing_exceptions do
       @cache.read("foo")
     end
   end
 
   def test_read_multi_does_raise_on_error
-    raises_when_not_swallowing_exceptions do
+    assert_raises_when_not_swallowing_exceptions do
       @cache.read_multi(%w(foo bar))
     end
   end
 
   def test_write_entry_does_raise_on_error
-    raises_when_not_swallowing_exceptions do
+    assert_raises_when_not_swallowing_exceptions do
       @cache.write("foo", "bar")
     end
   end
@@ -624,37 +624,37 @@ class TestMemcachedStore < ActiveSupport::TestCase
   end
 
   def test_delete_entry_does_raise_on_error
-    raises_when_not_swallowing_exceptions do
+    assert_raises_when_not_swallowing_exceptions do
       @cache.delete("foo")
     end
   end
 
   def test_cas_does_raise_on_error
-    raises_when_not_swallowing_exceptions do
+    assert_raises_when_not_swallowing_exceptions do
       @cache.cas("foo")
     end
   end
 
   def test_cas_multi_does_raise_on_error
-    raises_when_not_swallowing_exceptions do
+    assert_raises_when_not_swallowing_exceptions do
       @cache.cas_multi(%w(foo bar))
     end
   end
 
   def test_increment_does_raise_on_error
-    raises_when_not_swallowing_exceptions do
+    assert_raises_when_not_swallowing_exceptions do
       @cache.increment("foo")
     end
   end
 
   def test_decrement_does_raise_on_error
-    raises_when_not_swallowing_exceptions do
+    assert_raises_when_not_swallowing_exceptions do
       @cache.decrement("foo")
     end
   end
 
   def test_reset_does_raise_on_error
-    raises_when_not_swallowing_exceptions do
+    assert_raises_when_not_swallowing_exceptions do
       @cache.reset
     end
   end
@@ -682,7 +682,7 @@ class TestMemcachedStore < ActiveSupport::TestCase
     client.read_only = previous
   end
 
-  def raises_when_not_swallowing_exceptions
+  def assert_raises_when_not_swallowing_exceptions
     expect_error
     @cache.swallow_exceptions = false
     assert_raise Memcached::Error do
