@@ -394,7 +394,7 @@ class TestMemcachedStore < ActiveSupport::TestCase
     options = { namespace: 'foo:' }
     cache = ActiveSupport::Cache.lookup_store(:memcached_store, options)
     client = cache.instance_variable_get(:@data)
-    assert_equal ["127.0.0.1:11211:8"], client.servers
+    assert_equal ["127.0.0.1:11211"], extract_host_port_pairs(client.servers)
     assert_equal "", client.prefix_key, "should not send the namespace to the client"
     assert_equal "foo::key", cache.send(:namespaced_key, "key", cache.options)
   end
@@ -594,6 +594,71 @@ class TestMemcachedStore < ActiveSupport::TestCase
     assert_equal Rails.logger, @cache.logger
   end
 
+  def test_constructor_sets_swallow_exceptions
+    store = ActiveSupport::Cache::MemcachedStore.new([], swallow_exceptions: false)
+    refute store.swallow_exceptions
+  end
+
+  def test_read_entry_does_raise_on_error
+    assert_raises_when_not_swallowing_exceptions do
+      @cache.read("foo")
+    end
+  end
+
+  def test_read_multi_does_raise_on_error
+    assert_raises_when_not_swallowing_exceptions do
+      @cache.read_multi(%w(foo bar))
+    end
+  end
+
+  def test_write_entry_does_raise_on_error
+    assert_raises_when_not_swallowing_exceptions do
+      @cache.write("foo", "bar")
+    end
+  end
+
+  def test_delete_entry_does_not_raise_on_miss
+    expect_not_found
+    @cache.swallow_exceptions = false
+    @cache.delete("foo")
+  end
+
+  def test_delete_entry_does_raise_on_error
+    assert_raises_when_not_swallowing_exceptions do
+      @cache.delete("foo")
+    end
+  end
+
+  def test_cas_does_raise_on_error
+    assert_raises_when_not_swallowing_exceptions do
+      @cache.cas("foo")
+    end
+  end
+
+  def test_cas_multi_does_raise_on_error
+    assert_raises_when_not_swallowing_exceptions do
+      @cache.cas_multi(%w(foo bar))
+    end
+  end
+
+  def test_increment_does_raise_on_error
+    assert_raises_when_not_swallowing_exceptions do
+      @cache.increment("foo")
+    end
+  end
+
+  def test_decrement_does_raise_on_error
+    assert_raises_when_not_swallowing_exceptions do
+      @cache.decrement("foo")
+    end
+  end
+
+  def test_reset_does_raise_on_error
+    assert_raises_when_not_swallowing_exceptions do
+      @cache.reset
+    end
+  end
+
   private
 
   def assert_notifications(pattern, num)
@@ -617,11 +682,27 @@ class TestMemcachedStore < ActiveSupport::TestCase
     client.read_only = previous
   end
 
+  def assert_raises_when_not_swallowing_exceptions
+    expect_error
+    @cache.swallow_exceptions = false
+    assert_raise Memcached::Error do
+      yield
+    end
+  end
+
   def extract_host_port_pairs(servers)
     servers.map { |host| host.split(':')[0..1].join(':') }
   end
 
   def expect_not_found
     @cache.instance_variable_get(:@data).expects(:check_return_code).raises(Memcached::NotFound)
+  end
+
+  def expect_data_exists
+    @cache.instance_variable_get(:@data).expects(:check_return_code).raises(Memcached::ConnectionDataExists)
+  end
+
+  def expect_error
+    @cache.instance_variable_get(:@data).expects(:check_return_code).raises(Memcached::Error)
   end
 end

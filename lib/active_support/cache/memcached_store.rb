@@ -13,11 +13,14 @@ module ActiveSupport
     class MemcachedStore < Store
       ESCAPE_KEY_CHARS = /[\x00-\x20%\x7F-\xFF]/n
 
-      attr_accessor :read_only
+      attr_accessor :read_only, :swallow_exceptions
 
       def initialize(*addresses)
         addresses = addresses.flatten
         options = addresses.extract_options!
+        @swallow_exceptions = true
+        @swallow_exceptions = options.delete(:swallow_exceptions) if options.key?(:swallow_exceptions)
+
         super(options)
 
         if addresses.first.respond_to?(:get)
@@ -55,40 +58,34 @@ module ActiveSupport
         keys_to_names = Hash[names.map { |name| [normalize_key(name, options), name] }]
         values = {}
 
-        instrument(:read_multi, names, options) do
-          if raw_values = @data.get(keys_to_names.keys, false)
-            raw_values.each do |key, value|
-              entry = deserialize_entry(value)
-              values[keys_to_names[key]] = entry.value unless entry.expired?
+        handle_exceptions(return_value_on_error: {}) do
+          instrument(:read_multi, names, options) do
+            if raw_values = @data.get(keys_to_names.keys, false)
+              raw_values.each do |key, value|
+                entry = deserialize_entry(value)
+                values[keys_to_names[key]] = entry.value unless entry.expired?
+              end
             end
           end
+          values
         end
-        values
-      rescue Memcached::NotFound
-        {}
-      rescue Memcached::Error => e
-        log_exception(e)
-        {}
       end
 
       def cas(name, options = nil)
         options = merged_options(options)
         key = normalize_key(name, options)
 
-        instrument(:cas, name, options) do
-          @data.cas(key, expiration(options), !cas_raw?(options)) do |raw_value|
-            entry = deserialize_entry(raw_value)
-            value = yield entry.value
-            break true if read_only
-            serialize_entry(Entry.new(value, options), options).first
+        handle_exceptions(return_value_on_error: false) do
+          instrument(:cas, name, options) do
+            @data.cas(key, expiration(options), !cas_raw?(options)) do |raw_value|
+              entry = deserialize_entry(raw_value)
+              value = yield entry.value
+              break true if read_only
+              serialize_entry(Entry.new(value, options), options).first
+            end
           end
+          true
         end
-        true
-      rescue Memcached::NotFound, Memcached::ConnectionDataExists
-        false
-      rescue Memcached::Error => e
-        log_exception(e)
-        false
       end
 
       def cas_multi(*names)
@@ -98,56 +95,47 @@ module ActiveSupport
         options = merged_options(options)
         keys_to_names = Hash[names.map { |name| [normalize_key(name, options), name] }]
 
-        instrument(:cas_multi, names, options) do
-          @data.cas(keys_to_names.keys, expiration(options), !cas_raw?(options)) do |raw_values|
-            values = {}
+        handle_exceptions(return_value_on_error: false) do
+          instrument(:cas_multi, names, options) do
+            @data.cas(keys_to_names.keys, expiration(options), !cas_raw?(options)) do |raw_values|
+              values = {}
 
-            raw_values.each do |key, raw_value|
-              entry = deserialize_entry(raw_value)
-              values[keys_to_names[key]] = entry.value unless entry.expired?
+              raw_values.each do |key, raw_value|
+                entry = deserialize_entry(raw_value)
+                values[keys_to_names[key]] = entry.value unless entry.expired?
+              end
+
+              values = yield values
+
+              break true if read_only
+
+              serialized_values = values.map do |name, value|
+                [normalize_key(name, options), serialize_entry(Entry.new(value, options), options).first]
+              end
+
+              Hash[serialized_values]
             end
-
-            values = yield values
-
-            break true if read_only
-
-            serialized_values = values.map do |name, value|
-              [normalize_key(name, options), serialize_entry(Entry.new(value, options), options).first]
-            end
-
-            Hash[serialized_values]
+            true
           end
-          true
         end
-      rescue Memcached::NotFound, Memcached::ConnectionDataExists
-        false
-      rescue Memcached::Error => e
-        log_exception(e)
-        false
       end
 
       def increment(name, amount = 1, options = nil) # :nodoc:
         options = merged_options(options)
-        instrument(:increment, name, amount: amount) do
-          @data.incr(normalize_key(name, options), amount)
+        handle_exceptions(return_value_on_error: nil) do
+          instrument(:increment, name, amount: amount) do
+            @data.incr(normalize_key(name, options), amount)
+          end
         end
-      rescue Memcached::NotFound
-        nil
-      rescue Memcached::Error => e
-        log_exception(e)
-        nil
       end
 
       def decrement(name, amount = 1, options = nil) # :nodoc:
         options = merged_options(options)
-        instrument(:decrement, name, amount: amount) do
-          @data.decr(normalize_key(name, options), amount)
+        handle_exceptions(return_value_on_error: nil) do
+          instrument(:decrement, name, amount: amount) do
+            @data.decr(normalize_key(name, options), amount)
+          end
         end
-      rescue Memcached::NotFound
-        nil
-      rescue Memcached::Error => e
-        log_exception(e)
-        nil
       end
 
       def clear(options = nil)
@@ -167,21 +155,17 @@ module ActiveSupport
       end
 
       def reset #:nodoc:
-        @data.reset
-      rescue Memcached::Error => e
-        log_exception(e)
-        false
+        handle_exceptions(return_value_on_error: false) do
+          @data.reset
+        end
       end
 
       protected
 
       def read_entry(key, _options) # :nodoc:
-        deserialize_entry(@data.get(escape_key(key), false))
-      rescue Memcached::NotFound
-        nil
-      rescue Memcached::Error => e
-        log_exception(e)
-        nil
+        handle_exceptions(return_value_on_error: nil) do
+          deserialize_entry(@data.get(escape_key(key), false))
+        end
       end
 
       def write_entry(key, entry, options) # :nodoc:
@@ -189,24 +173,18 @@ module ActiveSupport
         method = options && options[:unless_exist] ? :add : :set
         expires_in = expiration(options)
         value, raw = serialize_entry(entry, options)
-        @data.send(method, escape_key(key), value, expires_in, !raw)
-        true
-      rescue Memcached::NotFound
-        false
-      rescue Memcached::Error => e
-        log_exception(e)
-        false
+        handle_exceptions(return_value_on_error: false) do
+          @data.send(method, escape_key(key), value, expires_in, !raw)
+          true
+        end
       end
 
       def delete_entry(key, _options) # :nodoc:
         return true if read_only
-        @data.delete(escape_key(key))
-        true
-      rescue Memcached::NotFound
-        true
-      rescue Memcached::Error => e
-        log_exception(e)
-        false
+        handle_exceptions(return_value_on_error: false, on_miss: true) do
+          @data.delete(escape_key(key))
+          true
+        end
       end
 
       private
@@ -266,8 +244,14 @@ module ActiveSupport
         expires_in
       end
 
-      def log_exception(e)
+      def handle_exceptions(return_value_on_error:, on_miss: return_value_on_error)
+        yield
+      rescue Memcached::NotFound, Memcached::ConnectionDataExists
+        on_miss
+      rescue Memcached::Error => e
+        raise unless @swallow_exceptions
         logger.warn("memcached error: #{e.class}: #{e.message}") if logger
+        return_value_on_error
       end
     end
   end
