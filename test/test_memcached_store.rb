@@ -10,6 +10,19 @@ class TestMemcachedStore < ActiveSupport::TestCase
     Thread.current[:instrument_cache_store] = true
   end
 
+  def test_accepts_memcached_instance_as_server
+    memcached = Memcached.new
+    store = ActiveSupport::Cache::MemcachedStore.new(memcached)
+    assert memcached.equal?(store.instance_variable_get(:@data))
+  end
+
+  def test_does_not_accepts_memcached_rails_instance_as_server
+    assert_raise RuntimeError, "Memcached::Rails is no longer supported, "\
+                "use a Memcached instance instead" do
+      ActiveSupport::Cache::MemcachedStore.new(Memcached::Rails.new)
+    end
+  end
+
   def test_write_not_found
     expect_not_found
     assert_equal false, @cache.write('not_exist', 1)

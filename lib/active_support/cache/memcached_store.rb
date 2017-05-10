@@ -23,8 +23,10 @@ module ActiveSupport
 
         super(options)
 
-        if addresses.first.respond_to?(:get)
+        if addresses.first.is_a?(Memcached)
           @data = addresses.first
+          raise "Memcached::Rails is no longer supported, "\
+                "use a Memcached instance instead" if @data.is_a?(Memcached::Rails)
         else
           mem_cache_options = options.dup
           servers = mem_cache_options.delete(:servers)
