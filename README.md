@@ -40,7 +40,7 @@ config.cache_store = :memcached_store,
 
 # for snappy store
 config.cache_store = :memcached_snappy_store,
-  Memcached::Rails.new(servers: ['memcached1.foo.com', 'memcached2.foo.com'])
+  Memcached.new(['memcached1.foo.com', 'memcached2.foo.com'])
 ```
 
 ## Benchmarks
