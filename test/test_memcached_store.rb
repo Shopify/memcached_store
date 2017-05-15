@@ -396,7 +396,7 @@ class TestMemcachedStore < ActiveSupport::TestCase
     client = cache.instance_variable_get(:@data)
     assert_equal ["127.0.0.1:11211"], extract_host_port_pairs(client.servers)
     assert_equal "", client.prefix_key, "should not send the namespace to the client"
-    assert_equal "foo::key", cache.send(:namespaced_key, "key", cache.options)
+    assert_equal "foo::key", cache.send(:normalize_key, "key", cache.options)
   end
 
   def test_reset
