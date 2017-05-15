@@ -10,5 +10,6 @@ env:
   - "AS_VERSION=4.1.0"
   - "AS_VERSION=4.2.0"
   - "AS_VERSION=5.0.0"
+  - "AS_VERSION=5.1.0"
 notifications:
   email: false
