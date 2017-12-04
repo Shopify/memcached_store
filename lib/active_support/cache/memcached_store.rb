@@ -14,6 +14,7 @@ module ActiveSupport
       ESCAPE_KEY_CHARS = /[\x00-\x20%\x7F-\xFF]/n
 
       attr_accessor :read_only, :swallow_exceptions
+      attr_writer :on_error
 
       def initialize(*addresses)
         addresses = addresses.flatten
@@ -251,6 +252,7 @@ module ActiveSupport
       rescue Memcached::NotFound, Memcached::ConnectionDataExists
         on_miss
       rescue Memcached::Error => e
+        @on_error.call(e) if @on_error
         raise unless @swallow_exceptions
         logger.warn("memcached error: #{e.class}: #{e.message}") if logger
         return_value_on_error
