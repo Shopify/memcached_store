@@ -618,6 +618,17 @@ class TestMemcachedStore < ActiveSupport::TestCase
     end
   end
 
+  def test_error_calls_on_error_handler
+    error = Memcached::Error.new("error")
+    @cache.instance_variable_get(:@data).expects(:check_return_code).raises(error)
+
+    error_handler = proc {}
+    error_handler.expects(:call).with(error).once
+
+    @cache.on_error = error_handler
+    @cache.read("foo")
+  end
+
   def test_read_multi_does_raise_on_error
     assert_raises_when_not_swallowing_exceptions do
       @cache.read_multi(%w(foo bar))
