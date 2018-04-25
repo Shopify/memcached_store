@@ -67,14 +67,14 @@ module ActiveSupport
         super(options)
 
         if addresses.first.is_a?(Memcached)
-          @data = addresses.first
+          @connection = addresses.first
           raise "Memcached::Rails is no longer supported, "\
-                "use a Memcached instance instead" if @data.is_a?(Memcached::Rails)
+                "use a Memcached instance instead" if @connection.is_a?(Memcached::Rails)
         else
           mem_cache_options = options.dup
           servers = mem_cache_options.delete(:servers)
           UNIVERSAL_OPTIONS.each { |name| mem_cache_options.delete(name) }
-          @data = Memcached.new([*addresses, *servers], mem_cache_options)
+          @connection = Memcached.new([*addresses, *servers], mem_cache_options)
         end
 
         extend Strategy::LocalCache
@@ -100,7 +100,7 @@ module ActiveSupport
 
         handle_exceptions(return_value_on_error: {}) do
           instrument(:read_multi, names, options) do
-            if raw_values = @data.get(keys_to_names.keys)
+            if raw_values = @connection.get(keys_to_names.keys)
               raw_values.each do |key, value|
                 entry = deserialize_entry(value)
                 values[keys_to_names[key]] = entry.value unless entry.expired?
@@ -117,7 +117,7 @@ module ActiveSupport
 
         handle_exceptions(return_value_on_error: false) do
           instrument(:cas, name, options) do
-            @data.cas(key, expiration(options)) do |raw_value|
+            @connection.cas(key, expiration(options)) do |raw_value|
               entry = deserialize_entry(raw_value)
               value = yield entry.value
               break true if read_only
@@ -136,7 +136,7 @@ module ActiveSupport
 
         handle_exceptions(return_value_on_error: false) do
           instrument(:cas_multi, names, options) do
-            @data.cas(keys_to_names.keys, expiration(options)) do |raw_values|
+            @connection.cas(keys_to_names.keys, expiration(options)) do |raw_values|
               values = {}
 
               raw_values.each do |key, raw_value|
@@ -163,7 +163,7 @@ module ActiveSupport
         options = merged_options(options)
         handle_exceptions(return_value_on_error: nil) do
           instrument(:increment, name, amount: amount) do
-            @data.incr(normalize_key(name, options), amount)
+            @connection.incr(normalize_key(name, options), amount)
           end
         end
       end
@@ -172,20 +172,20 @@ module ActiveSupport
         options = merged_options(options)
         handle_exceptions(return_value_on_error: nil) do
           instrument(:decrement, name, amount: amount) do
-            @data.decr(normalize_key(name, options), amount)
+            @connection.decr(normalize_key(name, options), amount)
           end
         end
       end
 
       def clear(options = nil)
         ActiveSupport::Notifications.instrument("cache_clear.active_support", options || {}) do
-          @data.flush
+          @connection.flush
         end
       end
 
       def stats
         ActiveSupport::Notifications.instrument("cache_stats.active_support") do
-          @data.stats
+          @connection.stats
         end
       end
 
@@ -195,7 +195,7 @@ module ActiveSupport
 
       def reset #:nodoc:
         handle_exceptions(return_value_on_error: false) do
-          @data.reset
+          @connection.reset
         end
       end
 
@@ -203,7 +203,7 @@ module ActiveSupport
 
       def read_entry(key, _options) # :nodoc:
         handle_exceptions(return_value_on_error: nil) do
-          deserialize_entry(@data.get(escape_key(key)))
+          deserialize_entry(@connection.get(escape_key(key)))
         end
       end
 
@@ -213,7 +213,7 @@ module ActiveSupport
         expires_in = expiration(options)
         value = serialize_entry(entry, options)
         handle_exceptions(return_value_on_error: false) do
-          @data.send(method, escape_key(key), value, expires_in)
+          @connection.send(method, escape_key(key), value, expires_in)
           true
         end
       end
@@ -221,7 +221,7 @@ module ActiveSupport
       def delete_entry(key, _options) # :nodoc:
         return true if read_only
         handle_exceptions(return_value_on_error: false, on_miss: true) do
-          @data.delete(escape_key(key))
+          @connection.delete(escape_key(key))
           true
         end
       end
