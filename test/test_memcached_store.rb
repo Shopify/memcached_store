@@ -603,8 +603,15 @@ class TestMemcachedStore < ActiveSupport::TestCase
     assert_equal "yes", @cache.fetch("narwhal")
   end
 
-  def test_logger_defaults_to_rails_logger
+  def test_logger_defaults_to_nil
+    assert_nil @cache.logger
+  end
+
+  def test_assigns_rails_logger_in_railtie
+    MemcachedStore::Railtie.initializers.each(&:run)
     assert_equal Rails.logger, @cache.logger
+  ensure
+    @cache.logger = nil
   end
 
   def test_constructor_sets_swallow_exceptions
