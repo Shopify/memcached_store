@@ -253,6 +253,8 @@ module ActiveSupport
         logger.warn("memcached error: #{e.class}: #{e.message}") if logger
         return_value_on_error
       end
+
+      ActiveSupport.run_load_hooks(:memcached_store)
     end
   end
 end
