@@ -625,15 +625,36 @@ class TestMemcachedStore < ActiveSupport::TestCase
     end
   end
 
-  def test_error_calls_on_error_handler
-    error = Memcached::Error.new("error")
-    @cache.instance_variable_get(:@data).expects(:check_return_code).raises(error)
+  def test_logs_on_error
+    expect_error
 
-    error_handler = proc {}
-    error_handler.expects(:call).with(error).once
+    logger = mock('logger', debug?: false)
+    logger
+      .expects(:warn)
+      .with("[MEMCACHED_ERROR] swallowed=true exception_class=Memcached::Error exception_message=Memcached::Error")
 
-    @cache.on_error = error_handler
+    @cache.logger = logger
     @cache.read("foo")
+  ensure
+    @cache.logger = nil
+  end
+
+  def test_logs_on_error_when_swallowing_is_disabled
+    expect_error
+
+    logger = mock('logger', debug?: false)
+    logger
+      .expects(:warn)
+      .with("[MEMCACHED_ERROR] swallowed=false exception_class=Memcached::Error exception_message=Memcached::Error")
+
+    @cache.logger = logger
+    @cache.swallow_exceptions = false
+
+    assert_raises Memcached::Error do
+      @cache.read("foo")
+    end
+  ensure
+    @cache.logger = nil
   end
 
   def test_read_multi_does_raise_on_error
