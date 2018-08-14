@@ -247,11 +247,19 @@ module ActiveSupport
       rescue Memcached::NotFound, Memcached::ConnectionDataExists
         on_miss
       rescue Memcached::Error => e
-        logger.warn(
-          "[MEMCACHED_ERROR] swallowed=#{@swallow_exceptions} exception_class=#{e.class} exception_message=#{e.message}"
-        ) if logger
+        log_warning(e)
         raise unless @swallow_exceptions
         return_value_on_error
+      end
+
+      def log_warning(err)
+        return unless logger
+        return if err.is_a?(Memcached::NotStored) && @swallow_exceptions
+
+        logger.warn(
+          "[MEMCACHED_ERROR] swallowed=#{@swallow_exceptions}" \
+          " exception_class=#{err.class} exception_message=#{err.message}"
+        )
       end
 
       ActiveSupport.run_load_hooks(:memcached_store)

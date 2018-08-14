@@ -657,6 +657,39 @@ class TestMemcachedStore < ActiveSupport::TestCase
     @cache.logger = nil
   end
 
+  def test_does_not_log_on_not_stored_error
+    expect_not_stored
+
+    logger = mock('logger', debug?: false)
+    logger.expects(:warn).never
+
+    @cache.logger = logger
+    @cache.swallow_exceptions = true
+
+    refute(@cache.write("foo", unless_exist: true))
+  ensure
+    @cache.logger = nil
+  end
+
+  def test_log_not_stored_error_on_exception
+    expect_not_stored
+
+    logger = mock('logger', debug?: false)
+    logger.expects(:warn)
+      .with(
+        "[MEMCACHED_ERROR] swallowed=false exception_class=Memcached::NotStored exception_message=Memcached::NotStored"
+      )
+
+    @cache.logger = logger
+    @cache.swallow_exceptions = false
+
+    assert_raises Memcached::NotStored do
+      @cache.write("foo", unless_exist: true)
+    end
+  ensure
+    @cache.logger = nil
+  end
+
   def test_read_multi_does_raise_on_error
     assert_raises_when_not_swallowing_exceptions do
       @cache.read_multi(%w(foo bar))
@@ -748,6 +781,10 @@ class TestMemcachedStore < ActiveSupport::TestCase
 
   def expect_not_found
     @cache.instance_variable_get(:@data).expects(:check_return_code).raises(Memcached::NotFound)
+  end
+
+  def expect_not_stored
+    @cache.instance_variable_get(:@data).expects(:check_return_code).raises(Memcached::NotStored)
   end
 
   def expect_data_exists
