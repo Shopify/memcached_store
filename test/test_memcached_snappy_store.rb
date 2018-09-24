@@ -62,7 +62,11 @@ class TestMemcachedSnappyStore < ActiveSupport::TestCase
 
   test "get should work when there is a connection fail" do
     key = 'ponies2'
-    @cache.instance_variable_get(:@connection).expects(:check_return_code).raises(Memcached::ConnectionFailure).at_least_once
+    @cache.instance_variable_get(:@connection)
+      .expects(:check_return_code)
+      .raises(Memcached::ConnectionFailure)
+      .at_least_once
+
     assert_nil @cache.read(key)
   end
 
