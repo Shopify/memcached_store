@@ -30,7 +30,7 @@ module ActiveSupport
           @compressor = compressor
         end
 
-        def encode(key, value, flags)
+        def encode(_key, value, flags)
           flags &= CLEAR_USED_FLAGS_MASK
           unless value.is_a?(String)
             flags |= SERIALIZED_FLAG
@@ -44,7 +44,7 @@ module ActiveSupport
           [value, flags]
         end
 
-        def decode(key, value, flags)
+        def decode(_key, value, flags)
           if (flags & COMPRESSED_FLAG) != 0
             value = @compressor.decompress(value)
           end
