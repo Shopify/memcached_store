@@ -37,6 +37,7 @@ module ActiveSupport
 
       def initialize(*addresses, **options)
         options[:codec] ||= ActiveSupport::Cache::MemcachedStore::Codec.new(compressor: SnappyCompressor)
+        options[:compress] = false
         super(*addresses, **options)
       end
     end

@@ -260,7 +260,7 @@ module ActiveSupport
 
       def deserialize_entry(value)
         if value
-          value.is_a?(Entry) ? value : Entry.new(value)
+          value.is_a?(Entry) ? value : Entry.new(value, compresss: false)
         end
       end
 
