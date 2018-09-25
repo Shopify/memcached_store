@@ -13,11 +13,54 @@ module ActiveSupport
     class MemcachedStore < Store
       ESCAPE_KEY_CHARS = /[\x00-\x20%\x7F-\xFF]/n
 
+      class Codec
+        # use dalli compatible flags
+        SERIALIZED_FLAG = 0x1
+        COMPRESSED_FLAG = 0x2
+
+        # Older versions of this gem would use 0 for the flags whether or not
+        # the value was marshal dumped. By setting this flag, we can tell if
+        # it were set with an older version for backwards compatible decoding.
+        RAW_FLAG = 0x10
+
+        def initialize(serializer: Marshal, compressor: nil)
+          @serializer = serializer
+          @compressor = compressor
+        end
+
+        def encode(_key, value, flags)
+          unless value.is_a?(String)
+            flags |= SERIALIZED_FLAG
+            value = @serializer.dump(value)
+          end
+          if @compressor
+            flags |= COMPRESSED_FLAG
+            value = @compressor.compress(value)
+          end
+          flags |= RAW_FLAG if flags == 0
+          [value, flags]
+        end
+
+        def decode(_key, value, flags)
+          if (flags & COMPRESSED_FLAG) != 0
+            value = @compressor.decompress(value)
+          end
+
+          if (flags & SERIALIZED_FLAG) != 0
+            @serializer.load(value)
+          elsif flags == 0 # legacy cache value
+            @serializer.load(value) rescue value
+          else
+            value
+          end
+        end
+      end
+
       attr_accessor :read_only, :swallow_exceptions
 
-      def initialize(*addresses)
+      def initialize(*addresses, **options)
         addresses = addresses.flatten
-        options = addresses.extract_options!
+        options[:codec] ||= Codec.new
         @swallow_exceptions = true
         @swallow_exceptions = options.delete(:swallow_exceptions) if options.key?(:swallow_exceptions)
 
@@ -57,7 +100,7 @@ module ActiveSupport
 
         handle_exceptions(return_value_on_error: {}) do
           instrument(:read_multi, names, options) do
-            if raw_values = @data.get(keys_to_names.keys, false)
+            if raw_values = @data.get(keys_to_names.keys)
               raw_values.each do |key, value|
                 entry = deserialize_entry(value)
                 values[keys_to_names[key]] = entry.value unless entry.expired?
@@ -74,19 +117,18 @@ module ActiveSupport
 
         handle_exceptions(return_value_on_error: false) do
           instrument(:cas, name, options) do
-            @data.cas(key, expiration(options), !cas_raw?(options)) do |raw_value|
+            @data.cas(key, expiration(options)) do |raw_value|
               entry = deserialize_entry(raw_value)
               value = yield entry.value
               break true if read_only
-              serialize_entry(Entry.new(value, options), options).first
+              serialize_entry(Entry.new(value, options), options)
             end
           end
           true
         end
       end
 
-      def cas_multi(*names)
-        options = names.extract_options!
+      def cas_multi(*names, **options)
         return if names.empty?
 
         options = merged_options(options)
@@ -94,7 +136,7 @@ module ActiveSupport
 
         handle_exceptions(return_value_on_error: false) do
           instrument(:cas_multi, names, options) do
-            @data.cas(keys_to_names.keys, expiration(options), !cas_raw?(options)) do |raw_values|
+            @data.cas(keys_to_names.keys, expiration(options)) do |raw_values|
               values = {}
 
               raw_values.each do |key, raw_value|
@@ -107,7 +149,7 @@ module ActiveSupport
               break true if read_only
 
               serialized_values = values.map do |name, value|
-                [normalize_key(name, options), serialize_entry(Entry.new(value, options), options).first]
+                [normalize_key(name, options), serialize_entry(Entry.new(value, options), options)]
               end
 
               Hash[serialized_values]
@@ -161,7 +203,7 @@ module ActiveSupport
 
       def read_entry(key, _options) # :nodoc:
         handle_exceptions(return_value_on_error: nil) do
-          deserialize_entry(@data.get(escape_key(key), false))
+          deserialize_entry(@data.get(escape_key(key)))
         end
       end
 
@@ -169,9 +211,9 @@ module ActiveSupport
         return true if read_only
         method = options && options[:unless_exist] ? :add : :set
         expires_in = expiration(options)
-        value, raw = serialize_entry(entry, options)
+        value = serialize_entry(entry, options)
         handle_exceptions(return_value_on_error: false) do
-          @data.send(method, escape_key(key), value, expires_in, !raw)
+          @data.send(method, escape_key(key), value, expires_in)
           true
         end
       end
@@ -213,24 +255,18 @@ module ActiveSupport
         end
       end
 
-      def deserialize_entry(raw_value)
-        if raw_value
-          entry = begin
-                      Marshal.load(raw_value)
-                    rescue
-                      raw_value
-                    end
-          entry.is_a?(Entry) ? entry : Entry.new(entry)
+      def deserialize_entry(value)
+        if value
+          value.is_a?(Entry) ? value : Entry.new(value, compresss: false)
         end
       end
 
       def serialize_entry(entry, options)
-        entry = entry.value.to_s if options[:raw]
-        [entry, options[:raw]]
-      end
-
-      def cas_raw?(options)
-        options[:raw]
+        if options[:raw]
+          entry.value.to_s
+        else
+          entry
+        end
       end
 
       def expiration(options)

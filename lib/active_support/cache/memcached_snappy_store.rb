@@ -12,6 +12,16 @@ module ActiveSupport
     class MemcachedSnappyStore < MemcachedStore
       class UnsupportedOperation < StandardError; end
 
+      module SnappyCompressor
+        def self.compress(source)
+          Snappy.deflate(source)
+        end
+
+        def self.decompress(source)
+          Snappy.inflate(source)
+        end
+      end
+
       def increment(*)
         raise UnsupportedOperation, "increment is not supported by: #{self.class.name}"
       end
@@ -25,21 +35,10 @@ module ActiveSupport
         false
       end
 
-      private
-
-      def serialize_entry(entry, options)
-        value = options[:raw] ? entry.value.to_s : Marshal.dump(entry)
-        [Snappy.deflate(value), true]
-      end
-
-      def deserialize_entry(compressed_value)
-        if compressed_value
-          super(Snappy.inflate(compressed_value))
-        end
-      end
-
-      def cas_raw?(_options)
-        true
+      def initialize(*addresses, **options)
+        options[:codec] ||= ActiveSupport::Cache::MemcachedStore::Codec.new(compressor: SnappyCompressor)
+        options[:compress] = false
+        super(*addresses, **options)
       end
     end
   end

@@ -69,7 +69,7 @@ class TestMemcachedSnappyStore < ActiveSupport::TestCase
   test "should use snappy to multi read cache entries but not on missing entries" do
     keys = %w(one tow three)
     values = keys.map { |k| k * 10 }
-    entries = values.map { |v| ActiveSupport::Cache::Entry.new(v) }
+    entries = values.map { |v| Marshal.dump(ActiveSupport::Cache::Entry.new(v)) }
 
     keys.each_with_index { |k, i| @cache.write(k, values[i]) }
 
@@ -82,7 +82,7 @@ class TestMemcachedSnappyStore < ActiveSupport::TestCase
   test "should use snappy to multi read cache entries" do
     keys = %w(one tow three)
     values = keys.map { |k| k * 10 }
-    entries = values.map { |v| ActiveSupport::Cache::Entry.new(v) }
+    entries = values.map { |v| Marshal.dump(ActiveSupport::Cache::Entry.new(v)) }
 
     keys.each_with_index { |k, i| @cache.write(k, values[i]) }
 
