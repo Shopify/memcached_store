@@ -744,6 +744,20 @@ class TestMemcachedStore < ActiveSupport::TestCase
     end
   end
 
+  def test_decoding_keys_written_using_old_version
+    memcached = Memcached.new
+    memcached.set("serialized", Marshal.dump(:old), 60, false)
+    assert_equal :old, @cache.read('serialized')
+    memcached.set("raw", "old", 60, false)
+    assert_equal "old", @cache.read('raw')
+  end
+
+  def test_raw_option_not_needed_on_read
+    raw_data = Marshal.dump(:raw)
+    @cache.write("raw", raw_data, raw: true)
+    assert_equal raw_data, @cache.read('raw')
+  end
+
   private
 
   def assert_notifications(pattern, num)

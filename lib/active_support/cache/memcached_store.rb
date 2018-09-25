@@ -23,15 +23,12 @@ module ActiveSupport
         # it were set with an older version for backwards compatible decoding.
         RAW_FLAG = 0x10
 
-        CLEAR_USED_FLAGS_MASK = ~(SERIALIZED_FLAG | COMPRESSED_FLAG | RAW_FLAG)
-
         def initialize(serializer: Marshal, compressor: nil)
           @serializer = serializer
           @compressor = compressor
         end
 
         def encode(_key, value, flags)
-          flags &= CLEAR_USED_FLAGS_MASK
           unless value.is_a?(String)
             flags |= SERIALIZED_FLAG
             value = @serializer.dump(value)
