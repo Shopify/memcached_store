@@ -758,6 +758,15 @@ class TestMemcachedStore < ActiveSupport::TestCase
     assert_equal raw_data, @cache.read('raw')
   end
 
+  def test_uncompress_regression
+    value = "bar" * ActiveSupport::Cache::Entry::DEFAULT_COMPRESS_LIMIT
+    Zlib::Deflate.expects(:deflate).never
+    Zlib::Inflate.expects(:inflate).never
+
+    @cache.write("foo", value, raw: true, compress: false)
+    assert_equal(value, @cache.read("foo"))
+  end
+
   private
 
   def assert_notifications(pattern, num)
