@@ -13,7 +13,7 @@ class TestMemcachedStore < ActiveSupport::TestCase
   def test_accepts_memcached_instance_as_server
     memcached = Memcached.new
     store = ActiveSupport::Cache::MemcachedStore.new(memcached)
-    assert memcached.equal?(store.instance_variable_get(:@data))
+    assert memcached.equal?(store.instance_variable_get(:@connection))
   end
 
   def test_does_not_accepts_memcached_rails_instance_as_server
@@ -392,28 +392,28 @@ class TestMemcachedStore < ActiveSupport::TestCase
   def test_initialize_accepts_a_list_of_servers_in_options
     options = { servers: ["localhost:21211"] }
     cache = ActiveSupport::Cache.lookup_store(:memcached_store, options)
-    servers = cache.instance_variable_get(:@data).servers
+    servers = cache.instance_variable_get(:@connection).servers
     assert_equal ["localhost:21211"], extract_host_port_pairs(servers)
   end
 
   def test_multiple_servers
     options = { servers: ["localhost:21211", "localhost:11211"] }
     cache = ActiveSupport::Cache.lookup_store(:memcached_store, options)
-    servers = extract_host_port_pairs(cache.instance_variable_get(:@data).servers)
+    servers = extract_host_port_pairs(cache.instance_variable_get(:@connection).servers)
     assert_equal ["localhost:21211", "localhost:11211"], servers
   end
 
   def test_namespace_without_servers
     options = { namespace: 'foo:' }
     cache = ActiveSupport::Cache.lookup_store(:memcached_store, options)
-    client = cache.instance_variable_get(:@data)
+    client = cache.instance_variable_get(:@connection)
     assert_equal ["127.0.0.1:11211"], extract_host_port_pairs(client.servers)
     assert_equal "", client.prefix_key, "should not send the namespace to the client"
     assert_equal "foo::key", cache.send(:normalize_key, "key", cache.options)
   end
 
   def test_reset
-    client = @cache.instance_variable_get(:@data)
+    client = @cache.instance_variable_get(:@connection)
     client.expects(:reset).once
     @cache.reset
   end
@@ -510,7 +510,7 @@ class TestMemcachedStore < ActiveSupport::TestCase
 
         assert_equal "no", value
         refute @cache.fetch("walrus"), "Client should return nil for expired key"
-        assert_equal "yo", @cache.instance_variable_get(:@data).get("walrus").value
+        assert_equal "yo", @cache.instance_variable_get(:@connection).get("walrus").value
       end
     end
   end
@@ -528,7 +528,7 @@ class TestMemcachedStore < ActiveSupport::TestCase
         assert_equal "no", @cache.fetch("walrus") { "no" }
         refute @cache.fetch("walrus")
 
-        assert_equal "yo", @cache.instance_variable_get(:@data).get("walrus").value
+        assert_equal "yo", @cache.instance_variable_get(:@connection).get("walrus").value
       end
     end
   end
@@ -541,7 +541,7 @@ class TestMemcachedStore < ActiveSupport::TestCase
       with_read_only(@cache) do
         refute @cache.read("walrus")
 
-        assert_equal "yo", @cache.instance_variable_get(:@data).get("walrus").value
+        assert_equal "yo", @cache.instance_variable_get(:@connection).get("walrus").value
       end
     end
   end
@@ -555,8 +555,8 @@ class TestMemcachedStore < ActiveSupport::TestCase
       with_read_only(@cache) do
         assert_predicate @cache.read_multi("walrus", "narwhal"), :empty?
 
-        assert_equal "yo", @cache.instance_variable_get(:@data).get("walrus").value
-        assert_equal "yiir", @cache.instance_variable_get(:@data).get("narwhal").value
+        assert_equal "yo", @cache.instance_variable_get(:@connection).get("walrus").value
+        assert_equal "yiir", @cache.instance_variable_get(:@connection).get("narwhal").value
       end
     end
   end
@@ -803,18 +803,18 @@ class TestMemcachedStore < ActiveSupport::TestCase
   end
 
   def expect_not_found
-    @cache.instance_variable_get(:@data).expects(:check_return_code).raises(Memcached::NotFound)
+    @cache.instance_variable_get(:@connection).expects(:check_return_code).raises(Memcached::NotFound)
   end
 
   def expect_not_stored
-    @cache.instance_variable_get(:@data).expects(:check_return_code).raises(Memcached::NotStored)
+    @cache.instance_variable_get(:@connection).expects(:check_return_code).raises(Memcached::NotStored)
   end
 
   def expect_data_exists
-    @cache.instance_variable_get(:@data).expects(:check_return_code).raises(Memcached::ConnectionDataExists)
+    @cache.instance_variable_get(:@connection).expects(:check_return_code).raises(Memcached::ConnectionDataExists)
   end
 
   def expect_error
-    @cache.instance_variable_get(:@data).expects(:check_return_code).raises(Memcached::Error)
+    @cache.instance_variable_get(:@connection).expects(:check_return_code).raises(Memcached::Error)
   end
 end
