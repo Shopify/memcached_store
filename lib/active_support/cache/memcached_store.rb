@@ -80,6 +80,19 @@ module ActiveSupport
         extend Strategy::LocalCache
       end
 
+      def append(name, value, options = nil)
+        return true if read_only
+        options = merged_options(options)
+        normalized_key = normalize_key(name, options)
+
+        handle_exceptions(return_value_on_error: nil, on_miss: false, miss_exceptions: [Memcached::NotStored]) do
+          instrument(:append, name) do
+            @connection.append(normalized_key, value)
+          end
+          true
+        end
+      end
+
       def write(*)
         return true if read_only
         super
@@ -277,9 +290,9 @@ module ActiveSupport
         expires_in
       end
 
-      def handle_exceptions(return_value_on_error:, on_miss: return_value_on_error)
+      def handle_exceptions(return_value_on_error:, on_miss: return_value_on_error, miss_exceptions: [])
         yield
-      rescue Memcached::NotFound, Memcached::ConnectionDataExists
+      rescue Memcached::NotFound, Memcached::ConnectionDataExists, *miss_exceptions
         on_miss
       rescue Memcached::Error => e
         log_warning(e)

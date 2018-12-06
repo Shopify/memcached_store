@@ -744,6 +744,25 @@ class TestMemcachedStore < ActiveSupport::TestCase
     end
   end
 
+  def test_append_with_cache_miss
+    assert_equal(false, @cache.append('foo', 'bar'))
+  end
+
+  def test_append
+    @cache.write('foo', 'val_1', raw: true)
+    assert(@cache.append('foo', ',val_2'))
+  end
+
+  def test_no_append_in_read_only
+    assert(@cache.write('foo', 'val_1', raw: true))
+
+    with_read_only(@cache) do
+      assert(@cache.append('foo', 'val_2'), 'Should return truthy when appended to not raise in client')
+    end
+
+    assert_equal('val_1', @cache.read('foo'), 'Cache entry should not have been appended to from read only client')
+  end
+
   def test_decoding_keys_written_using_old_version
     memcached = Memcached.new
     memcached.set("serialized", Marshal.dump(:old), 60, false)
