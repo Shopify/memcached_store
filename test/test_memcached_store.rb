@@ -30,7 +30,7 @@ class TestMemcachedStore < ActiveSupport::TestCase
 
   def test_fetch_not_found
     expect_not_found
-    assert_equal nil, @cache.fetch('not_exist')
+    assert_nil @cache.fetch('not_exist')
   end
 
   def test_should_read_and_write_strings
@@ -162,7 +162,7 @@ class TestMemcachedStore < ActiveSupport::TestCase
 
   def test_should_read_and_write_nil
     assert @cache.write('foo', nil)
-    assert_equal nil, @cache.read('foo')
+    assert_nil @cache.read('foo')
   end
 
   def test_should_read_and_write_false
@@ -299,7 +299,7 @@ class TestMemcachedStore < ActiveSupport::TestCase
     @cache.write('foo', 'bar', expires_in: 60)
     Time.stubs(:now).returns(time + 71)
     result = @cache.fetch('foo', race_condition_ttl: 10) do
-      assert_equal nil, @cache.read('foo')
+      assert_nil @cache.read('foo')
       "baz"
     end
     assert_equal "baz", result
@@ -354,7 +354,7 @@ class TestMemcachedStore < ActiveSupport::TestCase
 
   def test_increment_not_found
     expect_not_found
-    assert_equal nil, @cache.increment('not_exist')
+    assert_nil @cache.increment('not_exist')
   end
 
   def test_decrement
@@ -369,7 +369,7 @@ class TestMemcachedStore < ActiveSupport::TestCase
 
   def test_decrement_not_found
     expect_not_found
-    assert_equal nil, @cache.decrement('not_exist')
+    assert_nil @cache.decrement('not_exist')
   end
 
   def test_common_utf8_values

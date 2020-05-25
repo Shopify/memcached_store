@@ -134,7 +134,7 @@ module ActiveSupport
               entry = deserialize_entry(raw_value)
               value = yield entry.value
               break true if read_only
-              serialize_entry(Entry.new(value, options), options)
+              serialize_entry(Entry.new(value, **options), options)
             end
           end
           true
@@ -162,7 +162,7 @@ module ActiveSupport
               break true if read_only
 
               serialized_values = values.map do |name, value|
-                [normalize_key(name, options), serialize_entry(Entry.new(value, options), options)]
+                [normalize_key(name, options), serialize_entry(Entry.new(value, **options), options)]
               end
 
               Hash[serialized_values]
