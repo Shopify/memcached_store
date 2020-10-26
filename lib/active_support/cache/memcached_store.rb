@@ -58,6 +58,8 @@ module ActiveSupport
 
       attr_accessor :read_only, :swallow_exceptions
 
+      prepend(Strategy::LocalCache)
+
       def initialize(*addresses, **options)
         addresses = addresses.flatten
         options[:codec] ||= Codec.new
@@ -76,8 +78,6 @@ module ActiveSupport
           UNIVERSAL_OPTIONS.each { |name| mem_cache_options.delete(name) }
           @connection = Memcached.new([*addresses, *servers], mem_cache_options)
         end
-
-        extend Strategy::LocalCache
       end
 
       def append(name, value, options = nil)
