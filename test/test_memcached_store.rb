@@ -150,6 +150,27 @@ class TestMemcachedStore < ActiveSupport::TestCase
     assert_equal({ "foo" => "bad", "fud" => "buz" }, @cache.read_multi('foo', 'fud'))
   end
 
+  def test_cas_multi_with_results_hash
+    @cache.write('a', 'A')
+    @cache.write('b', 'B')
+    cas_results = {}
+    success = @cache.cas_multi('a', 'b', 'c', cas_results: cas_results) do |hash|
+      assert_equal({ 'a' => 'A', 'b' => 'B' }, hash)
+      @cache.write('b', 'setB')
+      { 'a' => 'casA', 'b' => 'casB' }
+    end
+    assert(success)
+    assert_equal({ "a" => "casA", "b" => "setB" }, @cache.read_multi('a', 'b', 'c'))
+    assert_equal({ "a" => true, "b" => false }, cas_results)
+  end
+
+  def test_cas_multi_all_misses_with_results_hash
+    cas_results = {}
+    success = @cache.cas_multi('a', 'b', cas_results: cas_results) { |_hash| flunk }
+    assert(success)
+    assert_equal({}, cas_results)
+  end
+
   def test_should_read_and_write_hash
     assert @cache.write('foo', a: "b")
     assert_equal({ a: "b" }, @cache.read('foo'))

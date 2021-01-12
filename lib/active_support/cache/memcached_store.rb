@@ -141,7 +141,7 @@ module ActiveSupport
         end
       end
 
-      def cas_multi(*names, **options)
+      def cas_multi(*names, cas_results: nil, **options)
         return if names.empty?
 
         options = merged_options(options)
@@ -149,7 +149,9 @@ module ActiveSupport
 
         handle_exceptions(return_value_on_error: false) do
           instrument(:cas_multi, names, options) do
-            @connection.cas(keys_to_names.keys, expiration(options)) do |raw_values|
+            get_results = nil
+            updated_hash = @connection.cas(keys_to_names.keys, expiration(options)) do |raw_values|
+              get_results = raw_values
               values = {}
 
               raw_values.each do |key, raw_value|
@@ -166,6 +168,12 @@ module ActiveSupport
               end
 
               Hash[serialized_values]
+            end
+            if cas_results
+              get_results&.each_key do |key|
+                name = keys_to_names.fetch(key)
+                cas_results[name] = updated_hash.key?(key)
+              end
             end
             true
           end
