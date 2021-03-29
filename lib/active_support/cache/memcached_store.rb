@@ -29,7 +29,7 @@ module ActiveSupport
         end
 
         def encode(_key, value, flags)
-          unless value.is_a?(String)
+          if @serializer
             flags |= SERIALIZED_FLAG
             value = @serializer.dump(value)
           end
@@ -37,7 +37,6 @@ module ActiveSupport
             flags |= COMPRESSED_FLAG
             value = @compressor.compress(value)
           end
-          flags |= RAW_FLAG if flags == 0
           [value, flags]
         end
 
@@ -130,11 +129,11 @@ module ActiveSupport
 
         handle_exceptions(return_value_on_error: false) do
           instrument(:cas, name, options) do
-            @connection.cas(key, expiration(options)) do |raw_value|
-              entry = deserialize_entry(raw_value)
-              value = yield entry.value
+            @connection.cas(key, expiration(options), !options[:raw]) do |raw_value|
+              value = options[:raw] ? raw_value : deserialize_entry(raw_value).value
+              value = yield value
               break true if read_only
-              serialize_entry(Entry.new(value, **options), options)
+              options[:raw] ? value : serialize_entry(Entry.new(value, **options), options)
             end
           end
           true
@@ -149,7 +148,7 @@ module ActiveSupport
 
         handle_exceptions(return_value_on_error: false) do
           instrument(:cas_multi, names, options) do
-            @connection.cas(keys_to_names.keys, expiration(options)) do |raw_values|
+            @connection.cas(keys_to_names.keys, expiration(options), !options[:raw]) do |raw_values|
               values = {}
 
               raw_values.each do |key, raw_value|
@@ -224,9 +223,15 @@ module ActiveSupport
         return true if read_only
         method = options && options[:unless_exist] ? :add : :set
         expires_in = expiration(options)
-        value = serialize_entry(entry, options)
+        if options[:raw]
+          value = entry.value.to_s
+          flags = Codec::RAW_FLAG
+        else
+          value = serialize_entry(entry, options)
+          flags = 0x0
+        end
         handle_exceptions(return_value_on_error: false) do
-          @connection.send(method, escape_key(key), value, expires_in)
+          @connection.send(method, escape_key(key), value, expires_in, !options[:raw], flags)
           true
         end
       end
@@ -275,11 +280,7 @@ module ActiveSupport
       end
 
       def serialize_entry(entry, options)
-        if options[:raw]
-          entry.value.to_s
-        else
-          entry
-        end
+        entry
       end
 
       def expiration(options)
