@@ -1,0 +1,7 @@
+source 'https://rubygems.org'
+
+gemspec
+
+gem "snappy", "~> 0.2.0"
+gem "memcached", "~> 1.8.0"
+gem "activesupport", "~> 5.2.0"

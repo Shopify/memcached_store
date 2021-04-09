@@ -23,4 +23,6 @@ Gem::Specification.new do |spec|
   spec.add_runtime_dependency "memcached", "~> 1.8.0"
 
   spec.add_development_dependency "rake"
+  spec.add_development_dependency "mocha"
+  spec.add_development_dependency "timecop"
 end
