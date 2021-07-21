@@ -362,8 +362,8 @@ class TestMemcachedStore < ActiveSupport::TestCase
   def test_crazy_key_characters
     crazy_key = "#/:*(<+=> )&$%@?;'\"\'`~-"
     assert @cache.write(crazy_key, "1", raw: true)
-    assert_equal "1", @cache.read(crazy_key)
-    assert_equal "1", @cache.fetch(crazy_key)
+    assert_equal "1", @cache.read(crazy_key, raw: true)
+    assert_equal "1", @cache.fetch(crazy_key, raw: true)
     assert @cache.delete(crazy_key)
     assert_equal "2", @cache.fetch(crazy_key, raw: true) { "2" }
     assert_equal 3, @cache.increment(crazy_key)
@@ -383,11 +383,11 @@ class TestMemcachedStore < ActiveSupport::TestCase
 
   def test_increment
     @cache.write('foo', 1, raw: true)
-    assert_equal 1, @cache.read('foo').to_i
+    assert_equal 1, @cache.read('foo', raw: true).to_i
     assert_equal 2, @cache.increment('foo')
-    assert_equal 2, @cache.read('foo').to_i
+    assert_equal 2, @cache.read('foo', raw: true).to_i
     assert_equal 3, @cache.increment('foo')
-    assert_equal 3, @cache.read('foo').to_i
+    assert_equal 3, @cache.read('foo', raw: true).to_i
     assert_nil @cache.increment('bar')
   end
 
@@ -398,11 +398,11 @@ class TestMemcachedStore < ActiveSupport::TestCase
 
   def test_decrement
     @cache.write('foo', 3, raw: true)
-    assert_equal 3, @cache.read('foo').to_i
+    assert_equal 3, @cache.read('foo', raw: true).to_i
     assert_equal 2, @cache.decrement('foo')
-    assert_equal 2, @cache.read('foo').to_i
+    assert_equal 2, @cache.read('foo', raw: true).to_i
     assert_equal 1, @cache.decrement('foo')
-    assert_equal 1, @cache.read('foo').to_i
+    assert_equal 1, @cache.read('foo', raw: true).to_i
     assert_nil @cache.decrement('bar')
   end
 
@@ -414,8 +414,8 @@ class TestMemcachedStore < ActiveSupport::TestCase
   def test_common_utf8_values
     key = "\xC3\xBCmlaut".force_encoding(Encoding::UTF_8)
     assert @cache.write(key, "1", raw: true)
-    assert_equal "1", @cache.read(key)
-    assert_equal "1", @cache.fetch(key)
+    assert_equal "1", @cache.read(key, raw: true)
+    assert_equal "1", @cache.fetch(key, raw: true)
     assert @cache.delete(key)
     assert_equal "2", @cache.fetch(key, raw: true) { "2" }
     assert_equal 3, @cache.increment(key)
@@ -457,191 +457,6 @@ class TestMemcachedStore < ActiveSupport::TestCase
     @cache.reset
   end
 
-  def test_write_to_read_only_memcached_store_should_not_write
-    with_read_only(@cache) do
-      assert @cache.write("walrus", "awesome"), "Writing to a disabled memcached
-      store should return truthy to make clients not care"
-
-      assert_nil @cache.read("walrus"), "Key should have nil value in disabled cache"
-    end
-  end
-
-  def test_delete_with_read_only_memcached_store_should_not_delete
-    assert @cache.write("walrus", "big")
-
-    with_read_only(@cache) do
-      assert @cache.delete("walrus"), "Should return truthy when deleted to not raise in client"
-    end
-
-    assert_equal "big", @cache.read("walrus"), "Cache entry should not have been deleted from read only client"
-  end
-
-  def test_cas_with_read_only_memcached_store_should_not_s
-    called_block = false
-    @cache.write('walrus', 'slimy')
-
-    with_read_only(@cache) do
-      assert(@cache.cas('walrus') do |value|
-        assert_equal 'slimy', value
-        called_block = true
-        'full'
-      end)
-    end
-
-    assert_equal 'slimy', @cache.read('walrus')
-    assert called_block, "CAS with read only should have called the inner block with an assertion"
-  end
-
-  def test_cas_multi_with_read_only_memcached_store_should_not_s
-    called_block = false
-
-    @cache.write('walrus', 'cool')
-    @cache.write('narwhal', 'horn')
-
-    with_read_only(@cache) do
-      assert(@cache.cas_multi('walrus', 'narwhal') do
-        called_block = true
-        { "walrus" => "not cool", "narwhal" => "not with horns" }
-      end)
-    end
-
-    assert_equal 'cool', @cache.read('walrus')
-    assert_equal 'horn', @cache.read('narwhal')
-    assert called_block, "CAS with read only should have called the inner block with an assertion"
-  end
-
-  def test_write_with_read_only_should_not_send_activesupport_notification
-    assert_notifications(/cache/, 0) do
-      with_read_only(@cache) do
-        assert @cache.write("walrus", "bestest")
-      end
-    end
-  end
-
-  def test_delete_with_read_only_should_not_send_activesupport_notification
-    assert_notifications(/cache/, 0) do
-      with_read_only(@cache) do
-        assert @cache.delete("walrus")
-      end
-    end
-  end
-
-  def test_fetch_with_expires_in_with_read_only_should_not_send_activesupport_notification
-    expires_in = 10
-    @cache.fetch("walrus", expires_in: expires_in) { "yo" }
-
-    Timecop.travel(Time.now + expires_in + 1) do
-      assert_notifications(/cache_write/, 0) do
-        with_read_only(@cache) do
-          @cache.fetch("walrus") { "no" }
-        end
-      end
-    end
-  end
-
-  def test_fetch_with_expired_entry_with_read_only_should_return_nil_and_not_delete_from_cache
-    expires_in = 10
-    @cache.fetch("walrus", expires_in: expires_in) { "yo" }
-
-    Timecop.travel(Time.now + expires_in + 1) do
-      with_read_only(@cache) do
-        value = @cache.fetch("walrus", expires_in: expires_in) { "no" }
-
-        assert_equal "no", value
-        refute @cache.fetch("walrus"), "Client should return nil for expired key"
-        assert_equal "yo", @cache.instance_variable_get(:@connection).get("walrus").value
-      end
-    end
-  end
-
-  def test_fetch_with_expired_entry_and_race_condition_ttl_with_read_only_should_return_nil_and_not_delete_from_cache
-    expires_in = 10
-    race_condition_ttl = 10
-    @cache.fetch("walrus", expires_in: expires_in) { "yo" }
-
-    Timecop.travel(Time.now + expires_in + 1) do
-      with_read_only(@cache) do
-        value = @cache.fetch("walrus", expires_in: expires_in, race_condition_ttl: race_condition_ttl) { "no" }
-
-        assert_equal "no", value
-        assert_equal "no", @cache.fetch("walrus") { "no" }
-        refute @cache.fetch("walrus")
-
-        assert_equal "yo", @cache.instance_variable_get(:@connection).get("walrus").value
-      end
-    end
-  end
-
-  def test_read_with_expired_with_read_only_entry_should_return_nil_and_not_delete_from_cache
-    expires_in = 10
-    @cache.fetch("walrus", expires_in: expires_in) { "yo" }
-
-    Timecop.travel(Time.now + expires_in + 1) do
-      with_read_only(@cache) do
-        refute @cache.read("walrus")
-
-        assert_equal "yo", @cache.instance_variable_get(:@connection).get("walrus").value
-      end
-    end
-  end
-
-  def test_read_multi_with_expired_entry_should_return_nil_and_not_delete_from_cache
-    expires_in = 10
-    @cache.fetch("walrus", expires_in: expires_in) { "yo" }
-    @cache.fetch("narwhal", expires_in: expires_in) { "yiir" }
-
-    Timecop.travel(Time.now + expires_in + 1) do
-      with_read_only(@cache) do
-        assert_predicate @cache.read_multi("walrus", "narwhal"), :empty?
-
-        assert_equal "yo", @cache.instance_variable_get(:@connection).get("walrus").value
-        assert_equal "yiir", @cache.instance_variable_get(:@connection).get("narwhal").value
-      end
-    end
-  end
-
-  def test_fetch_with_race_condition_ttl_with_read_only_should_not_send_activesupport_notification
-    expires_in = 10
-    race_condition_ttl = 10
-    @cache.fetch("walrus", expires_in: expires_in) { "yo" }
-
-    Timecop.travel(Time.now + expires_in + 1) do
-      assert_notifications(/cache_write/, 0) do
-        with_read_only(@cache) do
-          @cache.fetch("walrus", expires_in: expires_in, race_condition_ttl: race_condition_ttl) { "no" }
-        end
-      end
-    end
-  end
-
-  def test_cas_with_read_only_should_send_activesupport_notification
-    @cache.write("walrus", "yes")
-
-    with_read_only(@cache) do
-      assert_notifications(/cache_cas/, 1) do
-        assert(@cache.cas("walrus") { |_value| "no" })
-      end
-    end
-
-    assert_equal "yes", @cache.fetch("walrus")
-  end
-
-  def test_cas_multi_with_read_only_should_send_activesupport_notification
-    @cache.write("walrus", "yes")
-    @cache.write("narwhal", "yes")
-
-    with_read_only(@cache) do
-      assert_notifications(/cache_cas/, 1) do
-        assert(@cache.cas_multi("walrus", "narwhal") do |*_values|
-          { "walrus" => "no", "narwhal" => "no" }
-        end)
-      end
-    end
-
-    assert_equal "yes", @cache.fetch("walrus")
-    assert_equal "yes", @cache.fetch("narwhal")
-  end
-
   def test_logger_defaults_to_nil
     assert_nil @cache.logger
   end
@@ -653,45 +468,16 @@ class TestMemcachedStore < ActiveSupport::TestCase
     @cache.logger = nil
   end
 
-  def test_constructor_sets_swallow_exceptions
-    store = ActiveSupport::Cache::MemcachedStore.new([], swallow_exceptions: false)
-    refute store.swallow_exceptions
-  end
-
-  def test_read_entry_does_raise_on_error
-    assert_raises_when_not_swallowing_exceptions do
-      @cache.read("foo")
-    end
-  end
-
   def test_logs_on_error
     expect_error
 
     logger = mock('logger', debug?: false)
     logger
       .expects(:warn)
-      .with("[MEMCACHED_ERROR] swallowed=true exception_class=Memcached::Error exception_message=Memcached::Error")
+      .with("[MEMCACHED_ERROR] exception_class=Memcached::Error exception_message=Memcached::Error")
 
     @cache.logger = logger
     @cache.read("foo")
-  ensure
-    @cache.logger = nil
-  end
-
-  def test_logs_on_error_when_swallowing_is_disabled
-    expect_error
-
-    logger = mock('logger', debug?: false)
-    logger
-      .expects(:warn)
-      .with("[MEMCACHED_ERROR] swallowed=false exception_class=Memcached::Error exception_message=Memcached::Error")
-
-    @cache.logger = logger
-    @cache.swallow_exceptions = false
-
-    assert_raises Memcached::Error do
-      @cache.read("foo")
-    end
   ensure
     @cache.logger = nil
   end
@@ -703,84 +489,15 @@ class TestMemcachedStore < ActiveSupport::TestCase
     logger.expects(:warn).never
 
     @cache.logger = logger
-    @cache.swallow_exceptions = true
 
     refute(@cache.write("foo", unless_exist: true))
   ensure
     @cache.logger = nil
   end
 
-  def test_log_not_stored_error_on_exception
-    expect_not_stored
-
-    logger = mock('logger', debug?: false)
-    logger.expects(:warn)
-      .with(
-        "[MEMCACHED_ERROR] swallowed=false exception_class=Memcached::NotStored exception_message=Memcached::NotStored"
-      )
-
-    @cache.logger = logger
-    @cache.swallow_exceptions = false
-
-    assert_raises Memcached::NotStored do
-      @cache.write("foo", unless_exist: true)
-    end
-  ensure
-    @cache.logger = nil
-  end
-
-  def test_read_multi_does_raise_on_error
-    assert_raises_when_not_swallowing_exceptions do
-      @cache.read_multi(%w(foo bar))
-    end
-  end
-
-  def test_write_entry_does_raise_on_error
-    assert_raises_when_not_swallowing_exceptions do
-      @cache.write("foo", "bar")
-    end
-  end
-
   def test_delete_entry_does_not_raise_on_miss
     expect_not_found
-    @cache.swallow_exceptions = false
     @cache.delete("foo")
-  end
-
-  def test_delete_entry_does_raise_on_error
-    assert_raises_when_not_swallowing_exceptions do
-      @cache.delete("foo")
-    end
-  end
-
-  def test_cas_does_raise_on_error
-    assert_raises_when_not_swallowing_exceptions do
-      @cache.cas("foo")
-    end
-  end
-
-  def test_cas_multi_does_raise_on_error
-    assert_raises_when_not_swallowing_exceptions do
-      @cache.cas_multi(%w(foo bar))
-    end
-  end
-
-  def test_increment_does_raise_on_error
-    assert_raises_when_not_swallowing_exceptions do
-      @cache.increment("foo")
-    end
-  end
-
-  def test_decrement_does_raise_on_error
-    assert_raises_when_not_swallowing_exceptions do
-      @cache.decrement("foo")
-    end
-  end
-
-  def test_reset_does_raise_on_error
-    assert_raises_when_not_swallowing_exceptions do
-      @cache.reset
-    end
   end
 
   def test_append_with_cache_miss
@@ -792,45 +509,20 @@ class TestMemcachedStore < ActiveSupport::TestCase
     assert(@cache.append('foo', ',val_2'))
   end
 
-  def test_no_append_in_read_only
-    assert(@cache.write('foo', 'val_1', raw: true))
-
-    with_read_only(@cache) do
-      assert(@cache.append('foo', 'val_2'), 'Should return truthy when appended to not raise in client')
-    end
-
-    assert_equal('val_1', @cache.read('foo'), 'Cache entry should not have been appended to from read only client')
-  end
-
-  def test_decoding_keys_written_using_old_version
-    memcached = Memcached.new
-    memcached.set("serialized", Marshal.dump(:old), 60, false)
-    assert_equal :old, @cache.read('serialized')
-    memcached.set("raw", "old", 60, false)
-    assert_equal "old", @cache.read('raw')
-  end
-
-  def test_raw_option_not_needed_on_read
-    raw_data = Marshal.dump(:raw)
-    @cache.write("raw", raw_data, raw: true)
-    assert_equal raw_data, @cache.read('raw')
-  end
-
   def test_uncompress_regression
-    limit = if defined? ActiveSupport::Cache::Entry::DEFAULT_COMPRESS_LIMIT
-      ActiveSupport::Cache::Entry::DEFAULT_COMPRESS_LIMIT
-    else
-      ActiveSupport::Cache::DEFAULT_COMPRESS_LIMIT
-    end
-    value = "bar" * limit
+    value = "bar" * ActiveSupport::Cache::DEFAULT_COMPRESS_LIMIT
     Zlib::Deflate.expects(:deflate).never
     Zlib::Inflate.expects(:inflate).never
 
     @cache.write("foo", value, raw: true, compress: false)
-    assert_equal(value, @cache.read("foo"))
+    assert_equal(value, @cache.read("foo", raw: true))
   end
 
   private
+
+  def bypass_read(key)
+    @cache.send(:deserialize_entry, @cache.instance_variable_get(:@connection).get(key)).value
+  end
 
   def assert_notifications(pattern, num)
     count = 0
@@ -843,22 +535,6 @@ class TestMemcachedStore < ActiveSupport::TestCase
     assert_equal num, count, "Expected #{num} notifications for #{pattern}, but got #{count}"
   ensure
     ActiveSupport::Notifications.unsubscribe(subscriber)
-  end
-
-  def with_read_only(client)
-    previous = client.read_only
-    client.read_only = true
-    yield
-  ensure
-    client.read_only = previous
-  end
-
-  def assert_raises_when_not_swallowing_exceptions
-    expect_error
-    @cache.swallow_exceptions = false
-    assert_raise Memcached::Error do
-      yield
-    end
   end
 
   def extract_host_port_pairs(servers)
