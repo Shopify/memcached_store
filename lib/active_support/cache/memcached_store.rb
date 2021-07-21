@@ -212,22 +212,82 @@ module ActiveSupport
         end
       end
 
-      protected
+      private
 
-      def read_entry(key, _options) # :nodoc:
-        handle_exceptions(return_value_on_error: nil) do
-          deserialize_entry(@connection.get(key))
+      if private_method_defined?(:read_serialized_entry)
+        class LocalStore < Strategy::LocalCache::LocalStore
+          def write_entry(_key, entry)
+            if entry.is_a?(Entry)
+              entry.dup_value! 
+            end
+            super
+          end
+
+          def fetch_entry(key)
+            entry = @data.fetch(key) do
+              new_entry = yield
+              if entry.is_a?(Entry)
+                new_entry.dup_value!
+              end
+              @data[key] = new_entry
+            end
+            entry = entry.dup
+
+            if entry.is_a?(Entry)
+              entry.dup_value!
+            end
+
+            entry
+          end
         end
-      end
 
-      def write_entry(key, entry, options) # :nodoc:
-        return true if read_only
-        method = options && options[:unless_exist] ? :add : :set
-        expires_in = expiration(options)
-        value = serialize_entry(entry, options)
-        handle_exceptions(return_value_on_error: false) do
-          @connection.send(method, key, value, expires_in)
-          true
+        module LocalCacheDup
+          def with_local_cache
+            use_temporary_local_cache(LocalStore.new) { yield }
+          end
+        end
+        prepend LocalCacheDup
+
+        def read_entry(key, **options) # :nodoc:
+          deserialize_entry(read_serialized_entry(key, **options))
+        end
+
+        def read_serialized_entry(key, **)
+          handle_exceptions(return_value_on_error: nil) do
+            @connection.get(key)
+          end
+        end
+
+        def write_entry(key, entry, **options) # :nodoc:
+          return true if read_only
+
+          write_serialized_entry(key, serialize_entry(entry, **options), **options)
+        end
+
+        def write_serialized_entry(key, value, **options)
+          method = options && options[:unless_exist] ? :add : :set
+          expires_in = expiration(options)
+          handle_exceptions(return_value_on_error: false) do
+            @connection.send(method, key, value, expires_in)
+            true
+          end
+        end
+      else
+        def read_entry(key, _options) # :nodoc:
+          handle_exceptions(return_value_on_error: nil) do
+            deserialize_entry(@connection.get(key))
+          end
+        end
+
+        def write_entry(key, entry, options) # :nodoc:
+          return true if read_only
+          method = options && options[:unless_exist] ? :add : :set
+          expires_in = expiration(options)
+          value = serialize_entry(entry, options)
+          handle_exceptions(return_value_on_error: false) do
+            @connection.send(method, key, value, expires_in)
+            true
+          end
         end
       end
 
