@@ -216,7 +216,7 @@ module ActiveSupport
 
       def read_entry(key, _options) # :nodoc:
         handle_exceptions(return_value_on_error: nil) do
-          deserialize_entry(@connection.get(escape_key(key)))
+          deserialize_entry(@connection.get(key))
         end
       end
 
@@ -226,7 +226,7 @@ module ActiveSupport
         expires_in = expiration(options)
         value = serialize_entry(entry, options)
         handle_exceptions(return_value_on_error: false) do
-          @connection.send(method, escape_key(key), value, expires_in)
+          @connection.send(method, key, value, expires_in)
           true
         end
       end
@@ -234,38 +234,20 @@ module ActiveSupport
       def delete_entry(key, _options) # :nodoc:
         return true if read_only
         handle_exceptions(return_value_on_error: false, on_miss: true) do
-          @connection.delete(escape_key(key))
+          @connection.delete(key)
           true
         end
       end
 
       private
 
-      if ActiveSupport::VERSION::MAJOR < 5
-        def normalize_key(key, options)
-          escape_key(namespaced_key(key, options))
-        end
-
-        def escape_key(key)
-          key = key.to_s.dup
-          key = key.force_encoding(Encoding::ASCII_8BIT)
-          key = key.gsub(ESCAPE_KEY_CHARS) { |match| "%#{match.getbyte(0).to_s(16).upcase}" }
-          key = "#{key[0, 213]}:md5:#{Digest::MD5.hexdigest(key)}" if key.size > 250
-          key
-        end
-      else
-        def normalize_key(key, options)
-          key = super.dup
-          key = key.force_encoding(Encoding::ASCII_8BIT)
-          key = key.gsub(ESCAPE_KEY_CHARS) { |match| "%#{match.getbyte(0).to_s(16).upcase}" }
-          # When we remove support to Rails 5.1 we can change the code to use ActiveSupport::Digest
-          key = "#{key[0, 213]}:md5:#{::Digest::MD5.hexdigest(key)}" if key.size > 250
-          key
-        end
-
-        def escape_key(key)
-          key
-        end
+      def normalize_key(key, options)
+        key = super.dup
+        key = key.force_encoding(Encoding::ASCII_8BIT)
+        key = key.gsub(ESCAPE_KEY_CHARS) { |match| "%#{match.getbyte(0).to_s(16).upcase}" }
+        # When we remove support to Rails 5.1 we can change the code to use ActiveSupport::Digest
+        key = "#{key[0, 213]}:md5:#{::Digest::MD5.hexdigest(key)}" if key.size > 250
+        key
       end
 
       def deserialize_entry(value)
