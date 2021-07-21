@@ -2,9 +2,12 @@ require 'test_helper'
 require 'logger'
 
 class TestMemcachedStore < ActiveSupport::TestCase
+  include LocalCacheBehavior
+
   setup do
     @cache = ActiveSupport::Cache.lookup_store(:memcached_store, expires_in: 60, support_cas: true)
     @cache.clear
+    @peek = ActiveSupport::Cache.lookup_store(:memcached_store, expires_in: 60, support_cas: true)
 
     # Enable ActiveSupport notifications. Can be disabled in Rails 5.
     Thread.current[:instrument_cache_store] = true
@@ -778,7 +781,12 @@ class TestMemcachedStore < ActiveSupport::TestCase
   end
 
   def test_uncompress_regression
-    value = "bar" * ActiveSupport::Cache::Entry::DEFAULT_COMPRESS_LIMIT
+    limit = if defined? ActiveSupport::Cache::Entry::DEFAULT_COMPRESS_LIMIT
+      ActiveSupport::Cache::Entry::DEFAULT_COMPRESS_LIMIT
+    else
+      ActiveSupport::Cache::DEFAULT_COMPRESS_LIMIT
+    end
+    value = "bar" * limit
     Zlib::Deflate.expects(:deflate).never
     Zlib::Inflate.expects(:inflate).never
 
