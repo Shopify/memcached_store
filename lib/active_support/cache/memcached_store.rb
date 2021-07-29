@@ -1,5 +1,6 @@
 # file havily based out off https://github.com/rails/rails/blob/3-2-stable/activesupport/lib/active_support/cache/mem_cache_store.rb
 require 'digest/md5'
+require 'delegate'
 
 module ActiveSupport
   module Cache
@@ -215,21 +216,21 @@ module ActiveSupport
       private
 
       if private_method_defined?(:read_serialized_entry)
-        class LocalStore < Strategy::LocalCache::LocalStore
+        class DupLocalStore < DelegateClass(Strategy::LocalCache::LocalStore)
           def write_entry(_key, entry)
             if entry.is_a?(Entry)
-              entry.dup_value! 
+              entry.dup_value!
             end
             super
           end
 
           def fetch_entry(key)
-            entry = @data.fetch(key) do
+            entry = super do
               new_entry = yield
               if entry.is_a?(Entry)
                 new_entry.dup_value!
               end
-              @data[key] = new_entry
+              new_entry
             end
             entry = entry.dup
 
@@ -241,12 +242,17 @@ module ActiveSupport
           end
         end
 
-        module LocalCacheDup
-          def with_local_cache
-            use_temporary_local_cache(LocalStore.new) { yield }
+        module DupLocalCache
+          private
+
+          def local_cache
+            if local_cache = super
+              DupLocalStore.new(local_cache)
+            end
           end
         end
-        prepend LocalCacheDup
+
+        prepend DupLocalCache
 
         def read_entry(key, **options) # :nodoc:
           deserialize_entry(read_serialized_entry(key, **options))
