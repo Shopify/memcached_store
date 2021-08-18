@@ -128,18 +128,27 @@ module ActiveSupport
       def cas(name, options = nil)
         options = merged_options(options)
         key = normalize_key(name, options)
+        payload = nil
 
-        handle_exceptions(return_value_on_error: false) do
+        success = handle_exceptions(return_value_on_error: false) do
           instrument(:cas, name, options) do
             @connection.cas(key, expiration(options)) do |raw_value|
               entry = deserialize_entry(raw_value)
               value = yield entry.value
               break true if read_only
-              serialize_entry(Entry.new(value, **options), options)
+              payload = serialize_entry(Entry.new(value, **options), options)
             end
           end
           true
         end
+
+        if success
+          local_cache.write_entry(key, payload) if local_cache
+        else
+          local_cache.delete_entry(key) if local_cache
+        end
+
+        success
       end
 
       def cas_multi(*names, **options)
@@ -148,9 +157,11 @@ module ActiveSupport
         options = merged_options(options)
         keys_to_names = Hash[names.map { |name| [normalize_key(name, options), name] }]
 
+        sent_payloads = nil
+
         handle_exceptions(return_value_on_error: false) do
           instrument(:cas_multi, names, options) do
-            @connection.cas(keys_to_names.keys, expiration(options)) do |raw_values|
+            written_payloads = @connection.cas(keys_to_names.keys, expiration(options)) do |raw_values|
               values = {}
 
               raw_values.each do |key, raw_value|
@@ -166,8 +177,19 @@ module ActiveSupport
                 [normalize_key(name, options), serialize_entry(Entry.new(value, **options), options)]
               end
 
-              Hash[serialized_values]
+              sent_payloads = Hash[serialized_values]
             end
+
+            if local_cache && sent_payloads
+              sent_payloads.each_key do |key|
+                if written_payloads.key?(key)
+                  local_cache.write_entry(key, written_payloads[key])
+                else
+                  local_cache.delete_entry(key)
+                end
+              end
+            end
+
             true
           end
         end
