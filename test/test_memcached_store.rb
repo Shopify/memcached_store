@@ -80,6 +80,18 @@ class TestMemcachedStore < ActiveSupport::TestCase
     assert_equal 'bar', @cache.read('foo')
   end
 
+  def test_cas_local_cache
+    @cache.with_local_cache do
+      @cache.write('foo', 'plop')
+      assert(@cache.cas('foo') do |value|
+        assert_equal 'plop', value
+        'bar'
+      end)
+      assert_equal 'bar', @cache.read('foo')
+      assert_equal 'bar', @peek.read('foo')
+    end
+  end
+
   def test_cas_with_cache_miss
     refute @cache.cas('not_exist') { |_value| flunk }
   end
@@ -91,6 +103,17 @@ class TestMemcachedStore < ActiveSupport::TestCase
       'biz'
     }
     assert_equal 'baz', @cache.read('foo')
+  end
+
+  def test_cas_local_cache_with_conflict
+    @cache.with_local_cache do
+      @cache.write('foo', 'bar')
+      refute @cache.cas('foo') { |_value|
+        @peek.write('foo', 'baz')
+        'biz'
+      }
+      assert_equal 'baz', @cache.read('foo')
+    end
   end
 
   def test_cas_multi_with_empty_set
@@ -105,6 +128,19 @@ class TestMemcachedStore < ActiveSupport::TestCase
       { "foo" => "baz", "fud" => "buz" }
     end)
     assert_equal({ "foo" => "baz", "fud" => "buz" }, @cache.read_multi('foo', 'fud'))
+  end
+
+  def test_cas_multi_with_local_cache
+    @cache.with_local_cache do
+      @cache.write('foo', 'bar')
+      @cache.write('fud', 'biz')
+      assert_equal true, (@cache.cas_multi('foo', 'fud') do |hash|
+        assert_equal({ "foo" => "bar", "fud" => "biz" }, hash)
+        @peek.write('fud', 'blam')
+        { "foo" => "baz", "fud" => "buz" }
+      end)
+      assert_equal({ "foo" => "baz", "fud" => "blam" }, @cache.read_multi('foo', 'fud'))
+    end
   end
 
   def test_cas_multi_with_altered_key
