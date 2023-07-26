@@ -67,7 +67,13 @@ module ActiveSupport
         @swallow_exceptions = true
         @swallow_exceptions = options.delete(:swallow_exceptions) if options.key?(:swallow_exceptions)
 
-        super(options)
+        if options.key?(:coder)
+          raise ArgumentError, "ActiveSupport::Cache::MemcachedStore doesn't support custom coders"
+        end
+
+        # We don't use a coder, so we set it to nil so Active Support don't think we're using
+        # a deprecated one.
+        super(options.merge(coder: nil))
 
         if addresses.first.is_a?(Memcached)
           @connection = addresses.first
