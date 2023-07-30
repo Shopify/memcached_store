@@ -2,4 +2,4 @@ source 'https://rubygems.org'
 
 gemspec
 
-gem "snappy"
+gem "rails", github: "rails/rails", branch: "main"

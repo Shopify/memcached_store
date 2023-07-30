@@ -46,8 +46,6 @@ module LocalCacheBehavior
   end
 
   def test_local_cache_of_read_returns_a_copy_of_the_entry
-    skip if ActiveSupport.gem_version < Gem::Version.new('6.1')
-
     @cache.with_local_cache do
       @cache.write(:foo, type: "bar")
       value = @cache.read(:foo)
@@ -68,6 +66,13 @@ module LocalCacheBehavior
       assert_nil @cache.read("foo")
       @cache.send(:bypass_local_cache) { @cache.write "foo", "bar" }
       assert_nil @cache.read("foo")
+    end
+  end
+
+  def test_local_cache_fetch
+    @cache.with_local_cache do
+      @cache.send(:local_cache).write_entry "foo", "bar"
+      assert_equal "bar", @cache.send(:local_cache).fetch_entry("foo")
     end
   end
 
@@ -127,7 +132,10 @@ module LocalCacheBehavior
       @cache.write("foo", 1, raw: true)
       @peek.write("foo", 2, raw: true)
       @cache.increment("foo")
-      assert_equal 3, Integer(@cache.read("foo", raw: true))
+
+      expected = @peek.read("foo", raw: true)
+      assert_equal 3, Integer(expected)
+      assert_equal expected, @cache.read("foo", raw: true)
     end
   end
 
@@ -137,7 +145,9 @@ module LocalCacheBehavior
       @peek.write("foo", 3, raw: true)
 
       @cache.decrement("foo")
-      assert_equal 2, Integer(@cache.read("foo", raw: true))
+      expected = @peek.read("foo", raw: true)
+      assert_equal 2, Integer(expected)
+      assert_equal expected, @cache.read("foo", raw: true)
     end
   end
 
@@ -164,8 +174,6 @@ module LocalCacheBehavior
   end
 
   def test_initial_object_mutation_after_write
-    skip if ActiveSupport.gem_version < Gem::Version.new('6.1')
-
     @cache.with_local_cache do
       initial = +"bar"
       @cache.write("foo", initial)
@@ -175,8 +183,6 @@ module LocalCacheBehavior
   end
 
   def test_initial_object_mutation_after_fetch
-    skip if ActiveSupport.gem_version < Gem::Version.new('6.1')
-
     @cache.with_local_cache do
       initial = +"bar"
       @cache.fetch("foo") { initial }
@@ -184,6 +190,17 @@ module LocalCacheBehavior
       assert_equal "bar", @cache.read("foo")
       assert_equal "bar", @cache.fetch("foo")
     end
+  end
+
+  def test_middleware
+    app = lambda { |env|
+      result = @cache.write("foo", "bar")
+      assert_equal "bar", @cache.read("foo") # make sure 'foo' was written
+      assert result
+      [200, {}, []]
+    }
+    app = @cache.middleware.new(app)
+    app.call({})
   end
 
   def test_local_race_condition_protection
