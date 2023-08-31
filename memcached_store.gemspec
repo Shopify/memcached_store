@@ -4,7 +4,7 @@ $LOAD_PATH.unshift lib unless $LOAD_PATH.include?(lib)
 require "memcached_store/version"
 
 Gem::Specification.new do |spec|
-  spec.name = "memcached_store"
+  spec.name = "vinted-memcached_store"
   spec.authors = ["Camilo Lopez", "Tom Burns", "Arthur Neves", "Francis Bogsanyi"]
   spec.email = ["camilo@camilolopez.com", "tom.burns@shopify.com", "arthurnn@gmail.com", "francis.bogsanyi@shopify.com"]
   spec.summary = spec.description = 'Plugin-able Memcached adapters to add features (compression, safety)'
