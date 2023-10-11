@@ -350,8 +350,8 @@ module ActiveSupport
         end
       end
 
-      def serialize_entry(entry, options)
-        if options[:raw]
+      def serialize_entry(entry, options = nil)
+        if options && options[:raw]
           entry.value.to_s
         else
           entry
