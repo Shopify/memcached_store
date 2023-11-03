@@ -131,8 +131,6 @@ module ActiveSupport
         end
       end
 
-      CAS_SENTINEL = Object.new
-
       def cas(name, options = nil)
         options = merged_options(options)
         key = normalize_key(name, options)
@@ -140,14 +138,18 @@ module ActiveSupport
 
         success = handle_exceptions(return_value_on_error: false) do
           instrument(:cas, name, options) do
-            @connection.with_error_value(CAS_SENTINEL) do
+            @connection.without_exceptions do
               ret = @connection.cas(key, expiration(options)) do |raw_value|
                 entry = deserialize_entry(raw_value)
                 value = yield entry.value
                 break true if read_only
                 payload = serialize_entry(Entry.new(value, **options), options)
               end
-              ret != CAS_SENTINEL
+              # `cas` returns NOT_FOUND if the key doesn't exist, DATA_EXISTS if the key was modified by another client
+              # and it returns `nil` on success,
+              #
+              # Here we just want to return true/false if the key was set successfully, which is the case when `cas` returns nil
+              ret == nil
             end
           end
         end
@@ -292,8 +294,10 @@ module ActiveSupport
 
         def read_serialized_entry(key, **)
           handle_exceptions(return_value_on_error: nil) do
-            @connection.with_error_value(nil) do
-              @connection.get(key)
+            @connection.without_exceptions do
+              val = @connection.get(key)
+              return nil if val == Memcached::NOT_FOUND
+              val
             end
           end
         end
