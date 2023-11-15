@@ -88,14 +88,13 @@ module ActiveSupport
       end
 
       def append(name, value, options = nil)
-
         return true if read_only
         options = merged_options(options)
-        normalized_key = normalize_key(name, options)
+        key = normalize_key(name, options)
 
         handle_exceptions(return_value_on_error: nil, on_miss: false, miss_exceptions: [Memcached::NotStored]) do
-          instrument(:append, normalized_key) do
-            @connection.append(normalized_key, value)
+          instrument(:append, name_or_key(name, key)) do
+            @connection.append(key, value)
           end
           true
         end
@@ -120,7 +119,7 @@ module ActiveSupport
         values = {}
 
         handle_exceptions(return_value_on_error: {}) do
-          instrument(:read_multi, keys_to_names, options) do
+          instrument(:read_multi, name_or_key(names, keys_to_names), options) do
             if raw_values = @connection.get(keys_to_names.keys)
               raw_values.each do |key, value|
                 entry = deserialize_entry(value)
@@ -138,7 +137,7 @@ module ActiveSupport
         payload = nil
 
         success = handle_exceptions(return_value_on_error: false) do
-          instrument(:cas, key, options) do
+          instrument(:cas, name_or_key(name, key), options) do
             @connection.cas(key, expiration(options)) do |raw_value|
               entry = deserialize_entry(raw_value)
               value = yield entry.value
@@ -167,7 +166,7 @@ module ActiveSupport
         sent_payloads = nil
 
         handle_exceptions(return_value_on_error: false) do
-          instrument(:cas_multi, keys_to_names, options) do
+          instrument(:cas_multi, name_or_key(names, keys_to_names), options) do
             written_payloads = @connection.cas(keys_to_names.keys, expiration(options)) do |raw_values|
               values = {}
 
@@ -206,7 +205,7 @@ module ActiveSupport
         options = merged_options(options)
         key = normalize_key(name, options)
         handle_exceptions(return_value_on_error: nil) do
-          instrument(:increment, key, amount: amount) do
+          instrument(:increment, name_or_key(name, key), amount: amount) do
             @connection.incr(key, amount)
           end
         end
@@ -216,7 +215,7 @@ module ActiveSupport
         options = merged_options(options)
         key = normalize_key(name, options)
         handle_exceptions(return_value_on_error: nil) do
-          instrument(:decrement, key, amount: amount) do
+          instrument(:decrement, name_or_key(name, key), amount: amount) do
             @connection.decr(key, amount)
           end
         end
@@ -344,6 +343,15 @@ module ActiveSupport
         key = key.gsub(ESCAPE_KEY_CHARS) { |match| "%#{match.getbyte(0).to_s(16).upcase}" }
         key = "#{key[0, 213]}:md5:#{ActiveSupport::Digest.hash(key)}" if key.size > 250
         key
+      end
+
+      def name_or_key(name, key)
+        # Rails may not always be defined, ActiveSupport will be.
+        if  ActiveSupport::VERSION::STRING >= "7.2"
+          key
+        else
+          name
+        end
       end
 
       def deserialize_entry(value)
