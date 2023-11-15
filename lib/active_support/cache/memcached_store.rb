@@ -339,7 +339,6 @@ module ActiveSupport
       private
 
       def normalize_key(key, options)
-        debugger
         key = super.dup
         key = key.force_encoding(Encoding::ASCII_8BIT)
         key = key.gsub(ESCAPE_KEY_CHARS) { |match| "%#{match.getbyte(0).to_s(16).upcase}" }
