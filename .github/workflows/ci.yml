@@ -15,7 +15,7 @@ jobs:
             ruby: '3.0'
             gemfile: "Gemfile"
           - name: 'Rails edge'
-            ruby: '3.0'
+            ruby: '3.1'
             gemfile: "Gemfile.edge"
 
     name: ${{ matrix.entry.name }}
