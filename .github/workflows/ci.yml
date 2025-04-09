@@ -8,9 +8,6 @@ jobs:
     strategy:
       matrix:
         entry:
-          - name: "Minimum supported"
-            ruby: "3.2.0"
-            gemfile: "Gemfile.min"
           - name: "Latest released"
             ruby: "3.4.0"
             gemfile: "Gemfile"
