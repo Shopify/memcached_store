@@ -299,7 +299,7 @@ class TestMemcachedStore < ActiveSupport::TestCase
     assert @cache.delete('foo')
     assert !@cache.exist?('foo')
 
-    assert @cache.delete('foo')
+    assert_equal false, @cache.delete('foo')
   end
 
   def test_original_store_objects_should_not_be_immutable
