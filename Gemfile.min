@@ -3,5 +3,5 @@ source 'https://rubygems.org'
 gemspec
 
 gem "snappy", "~> 0.2.0"
-gem "memcached", "~> 1.8.0"
+gem "memcached", github: "Shopify/memcached", branch: "1-0-stable-shopify"
 gem "activesupport", "~> 6.0.0"

@@ -8,14 +8,14 @@ jobs:
     strategy:
       matrix:
         entry:
-          - name: 'Minimum supported'
-            ruby: '2.6'
+          - name: "Minimum supported"
+            ruby: "3.2.0"
             gemfile: "Gemfile.min"
-          - name: 'Latest released'
-            ruby: '3.0'
+          - name: "Latest released"
+            ruby: "3.4.0"
             gemfile: "Gemfile"
-          - name: 'Rails edge'
-            ruby: '3.1'
+          - name: "Rails edge"
+            ruby: "3.4.0"
             gemfile: "Gemfile.edge"
 
     name: ${{ matrix.entry.name }}
@@ -30,11 +30,11 @@ jobs:
           - 11211:11211
 
     steps:
-    - run: sudo apt-get -y install libsasl2-dev
-    - uses: actions/checkout@v2
-    - uses: ruby/setup-ruby@v1
-      with:
-        ruby-version: ${{ matrix.entry.ruby }}
-        rubygems: '3.3.13'
-        bundler-cache: true
-    - run: bundle exec rake
+      - run: sudo apt-get -y install libsasl2-dev
+      - uses: actions/checkout@v2
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: ${{ matrix.entry.ruby }}
+          rubygems: "3.3.13"
+          bundler-cache: true
+      - run: bundle exec rake

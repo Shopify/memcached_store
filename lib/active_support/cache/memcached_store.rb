@@ -327,7 +327,7 @@ module ActiveSupport
 
       def delete_entry(key, _options = nil) # :nodoc:
         return true if read_only
-        handle_exceptions(return_value_on_error: false, on_miss: true) do
+        handle_exceptions(return_value_on_error: false, on_miss: false) do
           @connection.delete(key)
           true
         end
