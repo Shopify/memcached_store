@@ -2,6 +2,7 @@ require 'minitest/autorun'
 require 'mocha/minitest'
 require 'timecop'
 
+require 'logger'
 require 'active_support'
 
 ActiveSupport.test_order = :random if ActiveSupport.respond_to?(:test_order)
