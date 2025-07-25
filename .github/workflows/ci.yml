@@ -1,21 +1,25 @@
 name: CI
-on: [push, pull_request]
+on:
+  push: {}
+  pull_request:
+    types: [opened, synchronize]
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     strategy:
+      fail-fast: false
       matrix:
         entry:
           - name: 'Minimum supported'
             ruby: '2.6'
             gemfile: "Gemfile.min"
           - name: 'Latest released'
-            ruby: '3.0'
+            ruby: '3.4'
             gemfile: "Gemfile"
           - name: 'Rails edge'
-            ruby: '3.1'
+            ruby: '3.4'
             gemfile: "Gemfile.edge"
 
     name: ${{ matrix.entry.name }}
@@ -30,7 +34,7 @@ jobs:
           - 11211:11211
 
     steps:
-    - run: sudo apt-get -y install libsasl2-dev
+    - run: sudo apt-get -y install libsasl2-dev libmemcached-dev
     - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
     - uses: ruby/setup-ruby@65937904bcddfb93f8130882d9afa8597c45f3b5 # v1.249.0
       with:
